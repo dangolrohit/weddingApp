@@ -25,3 +25,4 @@ export const publicApi = {
     return response.data;
   },
 };
+

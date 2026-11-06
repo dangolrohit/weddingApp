@@ -45,3 +45,4 @@ class InquirySerializer(serializers.ModelSerializer):
         if not attrs.get('email') and not attrs.get('phone'):
             raise serializers.ValidationError("Please provide either an email address or a phone number.")
         return attrs
+

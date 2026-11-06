@@ -11,7 +11,8 @@ import { Categories } from '../pages/admin/Categories';
 import { Settings } from '../pages/admin/Settings';
 import { Storage } from '../pages/admin/Placeholders';
 import { Home } from '../pages/public/Home';
-import { GetMyImage, Download } from '../pages/delivery/Placeholders';
+import { GetMyImage } from '../pages/delivery/GetMyImage';
+import { Download } from '../pages/delivery/Placeholders';
 
 export const AppRoutes = () => {
   return (

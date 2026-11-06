@@ -12,3 +12,4 @@ urlpatterns = [
     path('branding', PublicBrandingView.as_view(), name='public_branding'),
     path('inquiries', PublicInquiryCreateView.as_view(), name='public_inquiries'),
 ]
+

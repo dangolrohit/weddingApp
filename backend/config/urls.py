@@ -15,6 +15,7 @@ urlpatterns = [
     path('api/', include('apps.clients.urls')),
     path('api/', include('apps.site_settings.urls')),
     path('api/public/', include('apps.public_site.urls')),
+    path('api/', include('apps.delivery.urls')),
     path('', include('apps.photos.urls')),
 ]
 

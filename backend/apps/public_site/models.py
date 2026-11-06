@@ -19,3 +19,4 @@ class Inquiry(models.Model):
 
     def __str__(self):
         return f"Inquiry from {self.name or self.email or 'Anonymous'} ({self.created_at.strftime('%Y-%m-%d')})"
+
