@@ -12,7 +12,7 @@ import { Settings } from '../pages/admin/Settings';
 import { Storage } from '../pages/admin/Placeholders';
 import { Home } from '../pages/public/Home';
 import { GetMyImage } from '../pages/delivery/GetMyImage';
-import { Download } from '../pages/delivery/Placeholders';
+import { Download } from '../pages/delivery/Download';
 
 export const AppRoutes = () => {
   return (

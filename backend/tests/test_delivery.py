@@ -127,3 +127,4 @@ class GetMyImagePhase5Tests(TestCase):
         self.wedding_client.refresh_from_db()
         # Email remained locked to original!
         self.assertEqual(self.wedding_client.linked_email, 'arthur@camelot.co.uk')
+

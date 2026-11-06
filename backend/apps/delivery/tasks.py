@@ -1,13 +1,30 @@
+import shutil
 import logging
 from datetime import timedelta
+from pathlib import Path
 from celery import shared_task
 from django.conf import settings
 from django.core.mail import send_mail
 from django.utils import timezone
+
+from apps.clients.models import Client
 from apps.site_settings.models import SiteSetting
 from .models import DownloadLink, EmailLog, ZipBundle
 
 logger = logging.getLogger(__name__)
+
+@shared_task
+def build_zip_bundle_task(client_id: str):
+    """Background task to build or refresh the multi-part uncompressed ZIP bundle for a client."""
+    from .bundle import get_or_create_client_zip_bundle
+    try:
+        client = Client.objects.get(id=client_id)
+        bundle = get_or_create_client_zip_bundle(client)
+        return {"status": "success", "bundle_id": str(bundle.id), "parts": len(bundle.parts)}
+    except Client.DoesNotExist:
+        logger.error(f"Client {client_id} not found for ZIP bundle build.")
+        return {"status": "error", "message": "Client not found."}
+
 
 @shared_task
 def send_download_link_email_task(link_id: str, raw_token: str, base_url: str = 'http://localhost'):
@@ -75,8 +92,49 @@ def daily_cleanup_task():
     """
     Daily scheduled cleanup task:
     - Mark expired links
-    - Delete orphan ZIP files
-    - Purge clients in trash for over 30 days
+    - Delete orphaned ZIP files for bundles older than 14 days without active links
+    - Purge clients in trash for over 30 days, including all physical files
     """
+    now = timezone.now()
     logger.info("Executing daily cleanup task...")
-    return {"status": "success", "message": "Daily cleanup completed."}
+
+    # 1. Purge trash clients older than 30 days
+    trash_threshold = now - timedelta(days=30)
+    purged_clients = Client.objects.filter(deleted_at__isnull=False, deleted_at__lt=trash_threshold)
+    media_root = Path(settings.MEDIA_ROOT)
+
+    purged_count = 0
+    for client in purged_clients:
+        client_id_str = str(client.id)
+        # Delete client folders from disk
+        for subfolder in ('originals', 'thumbs', 'previews', 'showcase', 'zips'):
+            target_dir = media_root / subfolder / client_id_str
+            if target_dir.exists():
+                shutil.rmtree(target_dir, ignore_errors=True)
+        client.delete()
+        purged_count += 1
+
+    # 2. Delete orphaned ZIP files where all referencing links are expired or revoked
+    bundle_threshold = now - timedelta(days=14)
+    old_bundles = ZipBundle.objects.filter(built_at__lt=bundle_threshold)
+    deleted_bundles_count = 0
+
+    for bundle in old_bundles:
+        has_active_link = bundle.download_links.filter(
+            revoked_at__isnull=True,
+            expires_at__gt=now
+        ).exists()
+
+        if not has_active_link:
+            bundle_dir = media_root / 'zips' / str(bundle.client_id) / str(bundle.id)
+            if bundle_dir.exists():
+                shutil.rmtree(bundle_dir, ignore_errors=True)
+            bundle.delete()
+            deleted_bundles_count += 1
+
+    logger.info(f"Daily cleanup completed: purged {purged_count} trashed clients, removed {deleted_bundles_count} orphaned ZIP bundles.")
+    return {
+        "status": "success",
+        "purged_clients": purged_count,
+        "deleted_bundles": deleted_bundles_count
+    }

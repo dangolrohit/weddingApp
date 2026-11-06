@@ -106,3 +106,4 @@ class EmailLog(models.Model):
     class Meta:
         db_table = 'email_logs'
         ordering = ['-created_at']
+

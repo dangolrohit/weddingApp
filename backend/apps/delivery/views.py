@@ -1,9 +1,13 @@
+import mimetypes
+from pathlib import Path
 from datetime import timedelta
+from django.conf import settings
 from django.utils import timezone
+from django.http import HttpResponse, Http404, FileResponse
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from apps.clients.models import Client
 from apps.core.utils import (
@@ -16,11 +20,14 @@ from apps.core.utils import (
 )
 from apps.core.pagination import StandardResultsSetPagination
 from apps.site_settings.models import SiteSetting
-from .models import AccessAttempt, DownloadLink
+from .models import AccessAttempt, DownloadLink, DownloadLog, ZipBundle
+from .bundle import get_or_create_client_zip_bundle
 from .serializers import (
     ClientVerifySerializer,
     ClientPreviewPhotoSerializer,
     ClientLinkRequestSerializer,
+    AdminSendLinkSerializer,
+    AdminDownloadLinkSerializer,
     mask_email
 )
 from .tasks import send_download_link_email_task
@@ -32,6 +39,10 @@ def get_client_ip(request):
         return x_forwarded_for.split(',')[0].strip()
     return request.META.get('REMOTE_ADDR')
 
+
+# ==========================================
+# 1. CLIENT VERIFICATION & PREVIEW ENDPOINTS
+# ==========================================
 
 class GetMyImageVerifyView(APIView):
     """
@@ -121,11 +132,10 @@ class GetMyImageVerifyView(APIView):
         }
 
         response = Response(response_data, status=status.HTTP_200_OK)
-        # Also attach cookie for browser clients
         response.set_cookie(
             'client_session',
             session_token,
-            max_age=1800, # 30 minutes
+            max_age=1800,
             httponly=True,
             samesite='Lax'
         )
@@ -210,25 +220,27 @@ class GetMyImageRequestLinkView(APIView):
                 revoked_at__isnull=True
             ).update(revoked_at=timezone.now())
 
-        # Generate fresh download token & link
+        # Ensure ZIP bundle is ready
+        bundle = get_or_create_client_zip_bundle(client)
+
         raw_token = generate_download_token()
         token_hash = hash_download_token(raw_token)
         expires_at = timezone.now() + timedelta(days=valid_days)
 
         link = DownloadLink.objects.create(
             client=client,
+            bundle=bundle,
             token_hash=token_hash,
             email=recipient_email,
             expires_at=expires_at,
             max_downloads=max_downloads,
-            created_by=None # requested by the client
+            created_by=None
         )
 
         base_url = request.build_absolute_uri('/')
         try:
             send_download_link_email_task.delay(str(link.id), raw_token, base_url)
         except Exception:
-            # Fallback to synchronous in local/dev
             send_download_link_email_task(str(link.id), raw_token, base_url)
 
         return Response({
@@ -236,3 +248,243 @@ class GetMyImageRequestLinkView(APIView):
             'masked_email': mask_email(recipient_email),
             'expires_at': expires_at.isoformat()
         }, status=status.HTTP_200_OK)
+
+
+# ==========================================
+# 2. ADMIN SEND & LINK MANAGEMENT ENDPOINTS
+# ==========================================
+
+class AdminClientSendLinkView(APIView):
+    """
+    Admin action to dispatch a download link to a client.
+    Allows editing the destination email and optionally saving it as the client's locked email.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, client_id):
+        try:
+            client = Client.objects.get(id=client_id)
+        except (Client.DoesNotExist, ValueError):
+            return Response({'detail': 'Client not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = AdminSendLinkSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        target_email = serializer.validated_data['email'].strip()
+        save_email = serializer.validated_data['save_email']
+        revoke_previous = serializer.validated_data['revoke_previous']
+
+        if save_email or not client.linked_email:
+            client.linked_email = target_email
+            client.email_locked = True
+            client.save(update_fields=['linked_email', 'email_locked'])
+
+        # Revoke previous links if requested
+        if revoke_previous:
+            DownloadLink.objects.filter(
+                client=client,
+                revoked_at__isnull=True
+            ).update(revoked_at=timezone.now())
+
+        # Ensure ZIP bundle is ready
+        bundle = get_or_create_client_zip_bundle(client)
+
+        delivery_settings = SiteSetting.get_setting('delivery')
+        valid_days = int(delivery_settings.get('link_valid_days', 7))
+        max_downloads = int(delivery_settings.get('max_downloads', 10))
+
+        raw_token = generate_download_token()
+        token_hash = hash_download_token(raw_token)
+        expires_at = timezone.now() + timedelta(days=valid_days)
+
+        link = DownloadLink.objects.create(
+            client=client,
+            bundle=bundle,
+            token_hash=token_hash,
+            email=target_email,
+            expires_at=expires_at,
+            max_downloads=max_downloads,
+            created_by=request.user
+        )
+
+        base_url = request.build_absolute_uri('/')
+        try:
+            send_download_link_email_task.delay(str(link.id), raw_token, base_url)
+        except Exception:
+            send_download_link_email_task(str(link.id), raw_token, base_url)
+
+        return Response({
+            'detail': f'Download link created and dispatched to {target_email}.',
+            'raw_token': raw_token,
+            'download_url': f"{base_url.rstrip('/')}/d/{raw_token}",
+            'link': AdminDownloadLinkSerializer(link).data
+        }, status=status.HTTP_201_CREATED)
+
+
+class AdminClientLinksView(APIView):
+    """Lists link delivery history for a specific client."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, client_id):
+        try:
+            client = Client.objects.get(id=client_id)
+        except (Client.DoesNotExist, ValueError):
+            return Response({'detail': 'Client not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        links = client.download_links.order_by('-created_at')
+        serializer = AdminDownloadLinkSerializer(links, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AdminRevokeLinkView(APIView):
+    """Revokes a specific download link immediately."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, link_id):
+        try:
+            link = DownloadLink.objects.get(id=link_id)
+        except (DownloadLink.DoesNotExist, ValueError):
+            return Response({'detail': 'Link not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        link.revoked_at = timezone.now()
+        link.save(update_fields=['revoked_at'])
+        return Response({'detail': 'Link successfully revoked.'}, status=status.HTTP_200_OK)
+
+
+# ==========================================
+# 3. PUBLIC /d/{token} DOWNLOAD ENDPOINTS
+# ==========================================
+
+class PublicDownloadStatusView(APIView):
+    """
+    Validates token and returns download status, expiry, and ZIP part list for /d/{token}.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request, token):
+        token_hash = hash_download_token(token)
+        link = DownloadLink.objects.select_related('client', 'bundle').filter(token_hash=token_hash).first()
+
+        if not link:
+            return Response({'detail': 'Download link not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        branding = SiteSetting.get_setting('branding')
+
+        if link.revoked_at is not None:
+            return Response({
+                'status': 'revoked',
+                'detail': 'This download link has been revoked by the studio administrator.',
+                'contact': branding
+            }, status=status.HTTP_410_GONE)
+
+        if link.expires_at < timezone.now():
+            return Response({
+                'status': 'expired',
+                'detail': 'This download link has expired after 7 days.',
+                'contact': branding
+            }, status=status.HTTP_410_GONE)
+
+        if link.download_count >= link.max_downloads:
+            return Response({
+                'status': 'limit_reached',
+                'detail': f'This download link has reached its maximum limit of {link.max_downloads} downloads.',
+                'contact': branding
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        # Check bundle readiness
+        bundle = link.bundle
+        if not bundle or bundle.status == 'building':
+            return Response({
+                'status': 'building',
+                'detail': 'Your photo collection is currently being prepared into archives. Please refresh this page in a moment.'
+            }, status=status.HTTP_200_OK)
+
+        if bundle.status == 'failed':
+            return Response({
+                'status': 'failed',
+                'detail': 'There was an issue preparing the ZIP archives. Please contact the studio for a replacement link.',
+                'contact': branding
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        return Response({
+            'status': 'active',
+            'client_names': f"{link.client.groom_name} & {link.client.bride_name}",
+            'event_date': link.client.event_date,
+            'expires_at': link.expires_at.isoformat(),
+            'max_downloads': link.max_downloads,
+            'download_count': link.download_count,
+            'parts': bundle.parts,
+            'photo_count': bundle.photo_count,
+            'total_bytes': bundle.total_bytes,
+            'studio_name': branding.get('studio_name', 'Wedding Studio'),
+        }, status=status.HTTP_200_OK)
+
+
+class PublicDownloadPartView(APIView):
+    """
+    Streams a specific ZIP part to the client.
+    Increments download count and creates DownloadLog audit entry.
+    Handoff to Nginx using X-Accel-Redirect (or FileResponse in dev).
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request, token, part_no):
+        token_hash = hash_download_token(token)
+        link = DownloadLink.objects.select_related('client', 'bundle').filter(token_hash=token_hash).first()
+
+        if not link:
+            raise Http404("Download link not found")
+
+        if link.revoked_at is not None or link.expires_at < timezone.now() or link.download_count >= link.max_downloads:
+            return Response({'detail': 'This download link is no longer active.'}, status=status.HTTP_403_FORBIDDEN)
+
+        bundle = link.bundle
+        if not bundle or bundle.status != 'ready':
+            return Response({'detail': 'ZIP archive is not ready.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        # Find the requested part
+        part_no_int = int(part_no)
+        target_part = None
+        for p in bundle.parts:
+            if int(p.get('part', 0)) == part_no_int:
+                target_part = p
+                break
+
+        if not target_part:
+            raise Http404("ZIP part not found")
+
+        full_path = Path(settings.MEDIA_ROOT) / target_part['storage_key']
+        if not full_path.exists():
+            raise Http404("ZIP part file missing on disk")
+
+        # Increment download counter & write download audit log
+        link.download_count += 1
+        link.save(update_fields=['download_count'])
+
+        ip = get_client_ip(request)
+        ua = request.META.get('HTTP_USER_AGENT', '')
+        DownloadLog.objects.create(
+            link=link,
+            part_no=part_no_int,
+            ip_address=ip,
+            user_agent=ua
+        )
+
+        # Clean download filename: Groom_Bride_Part01.zip
+        clean_groom = link.client.groom_name.replace(' ', '_')
+        clean_bride = link.client.bride_name.replace(' ', '_')
+        download_name = f"{clean_groom}_{clean_bride}_Part{part_no_int:02d}.zip"
+
+        # Direct media serving for dev / testing fallback
+        if getattr(settings, 'SERVE_DIRECT_MEDIA', False):
+            response = FileResponse(open(full_path, 'rb'), content_type='application/zip')
+            response['Content-Disposition'] = f'attachment; filename="{download_name}"'
+            return response
+
+        # Production / Nginx streaming via X-Accel-Redirect
+        response = HttpResponse(status=status.HTTP_200_OK)
+        response['X-Accel-Redirect'] = f"/protected/{target_part['storage_key']}"
+        response['Content-Type'] = 'application/zip'
+        response['Content-Disposition'] = f'attachment; filename="{download_name}"'
+        response['Cache-Control'] = 'private, no-cache, no-store, must-revalidate'
+        return response

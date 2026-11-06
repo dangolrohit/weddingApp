@@ -4,6 +4,7 @@ import { clientsApi } from '../../api/clients';
 import { categoriesApi } from '../../api/categories';
 import { Modal } from '../../components/Modal';
 import { PasskeyModal } from '../../components/PasskeyModal';
+import { SendLinkModal } from '../../components/SendLinkModal';
 import { 
   Users, 
   Plus, 
@@ -60,6 +61,10 @@ export const Clients = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Send Link Modal
+  const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [selectedClientForSend, setSelectedClientForSend] = useState(null);
 
   const fetchCategories = async () => {
     try {
@@ -456,6 +461,16 @@ export const Clients = () => {
                         </button>
                       ) : (
                         <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => {
+                              setSelectedClientForSend(c);
+                              setSendModalOpen(true);
+                            }}
+                            className="p-1.5 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 transition-colors"
+                            title="Send Download Link"
+                          >
+                            <Send className="w-4 h-4" />
+                          </button>
                           <Link
                             to={`/admin/clients/${c.id}`}
                             className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
@@ -725,6 +740,14 @@ export const Clients = () => {
         passkey={generatedPasskey}
         clientNames={passkeyClientNames}
         isRegenerated={false}
+      />
+
+      {/* Send Download Link Modal */}
+      <SendLinkModal
+        isOpen={sendModalOpen}
+        onClose={() => setSendModalOpen(false)}
+        client={selectedClientForSend}
+        onSuccess={fetchClients}
       />
     </div>
   );

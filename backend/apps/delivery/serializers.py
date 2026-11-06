@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from apps.photos.models import Photo
+from .models import DownloadLink
 
 def mask_email(email: str) -> str:
     """Masks email address for client privacy. Example: alexandra@gmail.com -> a***a@gmail.com"""
@@ -42,3 +43,34 @@ class ClientPreviewPhotoSerializer(serializers.ModelSerializer):
 
 class ClientLinkRequestSerializer(serializers.Serializer):
     email = serializers.EmailField(required=False, allow_blank=True)
+
+
+class AdminSendLinkSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    save_email = serializers.BooleanField(default=False)
+    revoke_previous = serializers.BooleanField(default=True)
+
+
+class AdminDownloadLinkSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.SerializerMethodField()
+    is_active = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = DownloadLink
+        fields = [
+            'id',
+            'email',
+            'expires_at',
+            'revoked_at',
+            'max_downloads',
+            'download_count',
+            'created_by_name',
+            'sent_at',
+            'is_active',
+            'created_at',
+        ]
+
+    def get_created_by_name(self, obj):
+        if obj.created_by:
+            return obj.created_by.name or obj.created_by.email
+        return 'Client Self-Request'
