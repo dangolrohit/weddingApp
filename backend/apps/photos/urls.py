@@ -15,5 +15,5 @@ urlpatterns = [
     path('api/admin/clients/<uuid:client_id>/showcase', ShowcasePickerView.as_view(), name='admin_client_showcase'),
 
     # Protected file delivery (X-Accel-Redirect)
-    path('files/<str:kind>/<str:file_id>', ProtectedFileServeView.as_view(), name='protected_file_serve'),
+    path('files/<str:kind>/<path:file_id>', ProtectedFileServeView.as_view(), name='protected_file_serve'),
 ]

@@ -125,3 +125,4 @@ class AdminDashboardView(APIView):
             'recent_activity': recent_activity,
             'chart': chart_data,
         }, status=status.HTTP_200_OK)
+

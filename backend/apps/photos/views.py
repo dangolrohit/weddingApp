@@ -3,6 +3,7 @@ import mimetypes
 from pathlib import Path
 from django.conf import settings
 from django.http import HttpResponse, FileResponse, Http404
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from rest_framework import status
 from rest_framework.views import APIView
@@ -212,16 +213,22 @@ class ProtectedFileServeView(APIView):
     def get(self, request, kind, file_id):
         # 1. Branding Assets (Logo & Watermark images)
         if kind == 'branding':
-            branding_path = Path(settings.MEDIA_ROOT) / 'branding' / file_id
-            if not branding_path.exists():
-                raise Http404("File not found")
+            if '..' in file_id or '\\' in file_id:
+                return Response({'detail': 'Invalid file path.'}, status=status.HTTP_404_NOT_FOUND)
+            branding_path = (Path(settings.MEDIA_ROOT) / 'branding' / file_id).resolve()
+            media_root_resolved = Path(settings.MEDIA_ROOT).resolve()
+            try:
+                if not branding_path.is_relative_to(media_root_resolved) or not branding_path.exists():
+                    return Response({'detail': 'File not found.'}, status=status.HTTP_404_NOT_FOUND)
+            except ValueError:
+                return Response({'detail': 'File not found.'}, status=status.HTTP_404_NOT_FOUND)
             return self._serve_file(request, f"branding/{file_id}", branding_path)
 
         # 2. Photo Variants
         try:
             photo = Photo.objects.select_related('client').get(id=file_id)
-        except (Photo.DoesNotExist, ValueError):
-            raise Http404("Photo not found")
+        except (Photo.DoesNotExist, ValueError, ValidationError):
+            return Response({'detail': 'Photo not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         # Public Showcase Permission Check
         if kind == 'showcase':
@@ -250,11 +257,11 @@ class ProtectedFileServeView(APIView):
         # Find the storage key for this variant
         variant = photo.variants.filter(kind=kind).first()
         if not variant:
-            raise Http404("Variant not found or still processing")
+            return Response({'detail': 'Variant not found or still processing.'}, status=status.HTTP_404_NOT_FOUND)
 
         full_path = Path(settings.MEDIA_ROOT) / variant.storage_key
         if not full_path.exists():
-            raise Http404("Variant file missing on disk")
+            return Response({'detail': 'Variant file missing on disk.'}, status=status.HTTP_404_NOT_FOUND)
 
         return self._serve_file(request, variant.storage_key, full_path)
 

@@ -453,8 +453,12 @@ class PublicDownloadPartView(APIView):
         if not target_part:
             raise Http404("ZIP part not found")
 
-        full_path = Path(settings.MEDIA_ROOT) / target_part['storage_key']
-        if not full_path.exists():
+        full_path = (Path(settings.MEDIA_ROOT) / target_part['storage_key']).resolve()
+        media_root_resolved = Path(settings.MEDIA_ROOT).resolve()
+        try:
+            if not full_path.is_relative_to(media_root_resolved) or not full_path.exists():
+                raise Http404("ZIP part file missing on disk")
+        except ValueError:
             raise Http404("ZIP part file missing on disk")
 
         # Increment download counter & write download audit log

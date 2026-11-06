@@ -23,3 +23,4 @@ export const storageApi = {
     return response.data;
   },
 };
+
