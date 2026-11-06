@@ -5,7 +5,11 @@ import { AdminLayout } from '../layouts/AdminLayout';
 import { PublicLayout } from '../layouts/PublicLayout';
 import { Login } from '../pages/admin/Login';
 import { Dashboard } from '../pages/admin/Dashboard';
-import { Clients, Categories, Storage, Settings } from '../pages/admin/Placeholders';
+import { Clients } from '../pages/admin/Clients';
+import { ClientDetail } from '../pages/admin/ClientDetail';
+import { Categories } from '../pages/admin/Categories';
+import { Settings } from '../pages/admin/Settings';
+import { Storage } from '../pages/admin/Placeholders';
 import { Home } from '../pages/public/Home';
 import { GetMyImage, Download } from '../pages/delivery/Placeholders';
 
@@ -33,6 +37,7 @@ export const AppRoutes = () => {
       >
         <Route index element={<Dashboard />} />
         <Route path="clients" element={<Clients />} />
+        <Route path="clients/:id" element={<ClientDetail />} />
         <Route path="categories" element={<Categories />} />
         <Route path="storage" element={<Storage />} />
         <Route path="settings" element={<Settings />} />
@@ -43,4 +48,3 @@ export const AppRoutes = () => {
     </Routes>
   );
 };
-
