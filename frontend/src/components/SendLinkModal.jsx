@@ -226,3 +226,4 @@ export const SendLinkModal = ({ isOpen, onClose, client, onSuccess }) => {
     </Modal>
   );
 };
+

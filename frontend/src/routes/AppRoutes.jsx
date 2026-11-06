@@ -9,7 +9,7 @@ import { Clients } from '../pages/admin/Clients';
 import { ClientDetail } from '../pages/admin/ClientDetail';
 import { Categories } from '../pages/admin/Categories';
 import { Settings } from '../pages/admin/Settings';
-import { Storage } from '../pages/admin/Placeholders';
+import { Storage } from '../pages/admin/Storage';
 import { Home } from '../pages/public/Home';
 import { GetMyImage } from '../pages/delivery/GetMyImage';
 import { Download } from '../pages/delivery/Download';

@@ -156,3 +156,4 @@ class DeliveryPhase6Tests(TestCase):
 
         self.assertEqual(status_res.status_code, status.HTTP_410_GONE)
         self.assertEqual(status_res.data['status'], 'expired')
+

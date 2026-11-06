@@ -140,3 +140,4 @@ def build_client_zip_bundle(client: Client) -> ZipBundle:
         bundle.status = 'failed'
         bundle.save()
         raise
+

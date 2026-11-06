@@ -16,6 +16,8 @@ urlpatterns = [
     path('api/', include('apps.site_settings.urls')),
     path('api/public/', include('apps.public_site.urls')),
     path('api/', include('apps.delivery.urls')),
+    path('api/', include('apps.storage_stats.urls')),
+    path('api/', include('apps.core.urls')),
     path('', include('apps.photos.urls')),
 ]
 
