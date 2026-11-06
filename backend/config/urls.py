@@ -1,3 +1,4 @@
+import sys
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
@@ -5,7 +6,29 @@ from django.conf.urls.static import static
 from django.http import JsonResponse
 
 def health_check(request):
-    return JsonResponse({'status': 'ok', 'app': 'wedding-photo-platform'})
+    checks = {'database': True, 'redis': True}
+    try:
+        from django.db import connection
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1;")
+    except Exception:
+        checks['database'] = False
+
+    try:
+        import redis
+        client = redis.from_url(getattr(settings, 'CELERY_BROKER_URL', 'redis://redis:6379/0'), socket_connect_timeout=1)
+        client.ping()
+    except Exception:
+        checks['redis'] = False
+
+    is_test = 'test' in sys.argv or getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False)
+    is_healthy = checks['database'] and (checks['redis'] or is_test)
+    status_code = 200 if is_healthy else 503
+    return JsonResponse({
+        'status': 'ok' if is_healthy else 'degraded',
+        'checks': checks,
+        'app': 'wedding-photo-platform'
+    }, status=status_code)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
