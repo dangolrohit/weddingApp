@@ -65,3 +65,4 @@ class CategoryDetailView(APIView):
 
         category.delete()
         return Response({'detail': 'Category deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
+

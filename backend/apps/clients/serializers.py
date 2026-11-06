@@ -100,3 +100,4 @@ class ClientCreateSerializer(serializers.ModelSerializer):
         # Attach raw_passkey to instance so it is returned once in response
         client.raw_passkey = raw_passkey
         return client
+

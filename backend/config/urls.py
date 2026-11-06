@@ -14,6 +14,7 @@ urlpatterns = [
     path('api/', include('apps.categories.urls')),
     path('api/', include('apps.clients.urls')),
     path('api/', include('apps.site_settings.urls')),
+    path('', include('apps.photos.urls')),
 ]
 
 if getattr(settings, 'SERVE_DIRECT_MEDIA', False):

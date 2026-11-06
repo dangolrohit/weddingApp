@@ -1,9 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import { clientsApi } from '../../api/clients';
 import { categoriesApi } from '../../api/categories';
+import { photosApi } from '../../api/photos';
 import { Modal } from '../../components/Modal';
 import { PasskeyModal } from '../../components/PasskeyModal';
+import { UploadDropzone } from '../../components/UploadDropzone';
+import { PhotoGrid } from '../../components/PhotoGrid';
+import { Lightbox } from '../../components/Lightbox';
+import { ShowcasePicker } from '../../components/ShowcasePicker';
 import { 
   ArrowLeft, 
   Calendar, 
@@ -21,16 +26,15 @@ import {
   Star,
   Clock,
   Sparkles,
-  CheckCircle2,
-  Lock
+  UploadCloud
 } from 'lucide-react';
 
 export const ClientDetail = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
 
   const [client, setClient] = useState(null);
   const [categories, setCategories] = useState([]);
+  const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -52,29 +56,53 @@ export const ClientDetail = () => {
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState('');
 
+  // Lightbox State
+  const [lightboxIndex, setLightboxIndex] = useState(null);
+
   // Active Tab
   const [activeTab, setActiveTab] = useState('photos'); // 'photos', 'showcase', 'links'
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
-  const fetchClientData = async () => {
-    setLoading(true);
-    setError('');
+  const fetchClientData = useCallback(async () => {
     try {
-      const [clientData, catData] = await Promise.all([
+      const [clientData, catData, photoData] = await Promise.all([
         clientsApi.get(id),
         categoriesApi.list(),
+        photosApi.list(id),
       ]);
       setClient(clientData);
       setCategories(catData);
+      setPhotos(photoData);
     } catch {
       setError('Failed to load client details.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     fetchClientData();
-  }, [id]);
+  }, [fetchClientData]);
+
+  // If any photo is in 'processing' status, poll status every 4 seconds
+  useEffect(() => {
+    const hasProcessing = photos.some((p) => p.status === 'processing');
+    if (!hasProcessing) return;
+
+    const timer = setInterval(async () => {
+      try {
+        const updatedPhotos = await photosApi.list(id);
+        setPhotos(updatedPhotos);
+        // Refresh client storage/counts
+        const updatedClient = await clientsApi.get(id);
+        setClient(updatedClient);
+      } catch {
+        // Silently retry next tick
+      }
+    }, 4000);
+
+    return () => clearInterval(timer);
+  }, [photos, id]);
 
   const handleOpenEdit = () => {
     if (!client) return;
@@ -130,6 +158,30 @@ export const ClientDetail = () => {
     }
   };
 
+  const handleToggleHide = async (photo) => {
+    try {
+      const updated = await photosApi.update(photo.id, { is_hidden: !photo.is_hidden });
+      setPhotos((prev) => prev.map((p) => (p.id === photo.id ? updated : p)));
+    } catch {
+      alert('Failed to update photo visibility.');
+    }
+  };
+
+  const handleDeletePhoto = async (photo) => {
+    if (!window.confirm(`Delete photo "${photo.original_filename}"? This removes it permanently from disk.`)) {
+      return;
+    }
+    try {
+      await photosApi.delete(photo.id);
+      setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+      // Refresh client stats
+      const updatedClient = await clientsApi.get(id);
+      setClient(updatedClient);
+    } catch {
+      alert('Failed to delete photo.');
+    }
+  };
+
   const formatBytes = (bytes) => {
     if (!bytes || bytes === 0) return '0 MB';
     const mb = bytes / (1024 * 1024);
@@ -172,7 +224,7 @@ export const ClientDetail = () => {
         </Link>
       </div>
 
-      {/* Main Client Info Card */}
+      {/* Main Client Info Banner */}
       <div className="bg-white rounded-2xl border border-stone-200/80 p-6 sm:p-8 shadow-sm space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-stone-100">
           <div>
@@ -205,6 +257,14 @@ export const ClientDetail = () => {
 
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-stone-900 text-stone-100 text-xs font-semibold hover:bg-stone-800 transition-colors shadow-sm cursor-pointer"
+            >
+              <UploadCloud className="w-4 h-4 text-amber-400" />
+              <span>Upload Photos</span>
+            </button>
+
             <button
               onClick={handleRegeneratePasskey}
               disabled={regenerating}
@@ -240,7 +300,7 @@ export const ClientDetail = () => {
               <Camera className="w-3.5 h-3.5" /> Total Photos
             </span>
             <p className="font-semibold text-stone-800 text-sm mt-1">
-              {client.photo_count || 0}
+              {photos.length}
             </p>
           </div>
 
@@ -262,13 +322,6 @@ export const ClientDetail = () => {
             </p>
           </div>
         </div>
-
-        {client.notes && (
-          <div className="p-4 rounded-xl bg-amber-50/50 border border-amber-200/60 text-xs text-stone-600">
-            <span className="font-semibold text-amber-900 block mb-0.5">Photographer Notes:</span>
-            {client.notes}
-          </div>
-        )}
       </div>
 
       {/* Tabs */}
@@ -281,7 +334,7 @@ export const ClientDetail = () => {
               : 'border-transparent text-stone-400 hover:text-stone-700'
           }`}
         >
-          Photo Gallery ({client.photo_count || 0})
+          Photo Gallery ({photos.length})
         </button>
         <button
           onClick={() => setActiveTab('showcase')}
@@ -309,22 +362,39 @@ export const ClientDetail = () => {
 
       {/* Tab Panels */}
       {activeTab === 'photos' && (
-        <div className="bg-white rounded-2xl border border-stone-200/80 p-8 text-center shadow-sm">
-          <Camera className="w-12 h-12 text-stone-300 mx-auto mb-3" />
-          <h3 className="font-serif font-semibold text-stone-800 text-base">Photo Upload Pipeline</h3>
-          <p className="text-sm text-stone-500 max-w-md mx-auto mt-1 mb-4">
-            Drag-and-drop multi-file uploader with progress tracking and Celery variant generation scheduled for Phase 3.
-          </p>
+        <div className="space-y-6">
+          <UploadDropzone
+            clientId={client.id}
+            onUploadComplete={fetchClientData}
+          />
+
+          <div className="bg-white rounded-2xl border border-stone-200/80 p-6 shadow-sm">
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-stone-100">
+              <h3 className="font-semibold text-stone-900 text-sm">
+                Gallery Photos ({photos.length})
+              </h3>
+              <span className="text-xs text-stone-400">
+                Click any photo to preview in lightbox
+              </span>
+            </div>
+
+            <PhotoGrid
+              photos={photos}
+              onPhotoClick={(index) => setLightboxIndex(index)}
+              onToggleHide={handleToggleHide}
+              onDeletePhoto={handleDeletePhoto}
+            />
+          </div>
         </div>
       )}
 
       {activeTab === 'showcase' && (
-        <div className="bg-white rounded-2xl border border-stone-200/80 p-8 text-center shadow-sm">
-          <Star className="w-12 h-12 text-amber-400/60 mx-auto mb-3" />
-          <h3 className="font-serif font-semibold text-stone-800 text-base">Public Showcase Picker</h3>
-          <p className="text-sm text-stone-500 max-w-md mx-auto mt-1 mb-4">
-            Select up to 3 watermarked photos for the public portfolio. Scheduled for Phase 4.
-          </p>
+        <div className="bg-white rounded-2xl border border-stone-200/80 p-6 sm:p-8 shadow-sm">
+          <ShowcasePicker
+            clientId={client.id}
+            photos={photos}
+            onShowcaseUpdated={fetchClientData}
+          />
         </div>
       )}
 
@@ -333,10 +403,33 @@ export const ClientDetail = () => {
           <Clock className="w-12 h-12 text-stone-300 mx-auto mb-3" />
           <h3 className="font-serif font-semibold text-stone-800 text-base">Delivery Link History</h3>
           <p className="text-sm text-stone-500 max-w-md mx-auto mt-1 mb-4">
-            Logs of sent 7-day download links, download counts, and revocation status scheduled for Phase 6.
+            ZIP download links and delivery logs scheduled for Phase 6.
           </p>
         </div>
       )}
+
+      {/* Lightbox Viewer */}
+      {lightboxIndex !== null && (
+        <Lightbox
+          photos={photos}
+          currentIndex={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onNavigate={(newIndex) => setLightboxIndex(newIndex)}
+        />
+      )}
+
+      {/* Upload Modal (Triggered by Upload button) */}
+      <Modal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        title="Upload Client Photos"
+        maxWidth="max-w-2xl"
+      >
+        <UploadDropzone
+          clientId={client.id}
+          onUploadComplete={fetchClientData}
+        />
+      </Modal>
 
       {/* Edit Client Modal */}
       <Modal
@@ -363,7 +456,7 @@ export const ClientDetail = () => {
                 required
                 value={groomName}
                 onChange={(e) => setGroomName(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-600"
+                className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30"
               />
             </div>
             <div>
@@ -375,7 +468,7 @@ export const ClientDetail = () => {
                 required
                 value={brideName}
                 onChange={(e) => setBrideName(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-600"
+                className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30"
               />
             </div>
           </div>
@@ -389,7 +482,7 @@ export const ClientDetail = () => {
                 type="date"
                 value={eventDate}
                 onChange={(e) => setEventDate(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-600"
+                className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30"
               />
             </div>
             <div>
@@ -399,7 +492,7 @@ export const ClientDetail = () => {
               <select
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-600"
+                className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30"
               >
                 <option value="">Select Category...</option>
                 {categories.map((c) => (
@@ -418,7 +511,7 @@ export const ClientDetail = () => {
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-600"
+                className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30"
               />
             </div>
             <div>
@@ -429,7 +522,7 @@ export const ClientDetail = () => {
                 type="email"
                 value={linkedEmail}
                 onChange={(e) => setLinkedEmail(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-600"
+                className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30"
               />
             </div>
           </div>
@@ -441,7 +534,7 @@ export const ClientDetail = () => {
             <select
               value={statusVal}
               onChange={(e) => setStatusVal(e.target.value)}
-              className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-600"
+              className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30"
             >
               <option value="draft">Draft (Private)</option>
               <option value="published">Published (Accessible for Client)</option>
@@ -457,7 +550,7 @@ export const ClientDetail = () => {
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-600"
+              className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30"
             />
           </div>
 

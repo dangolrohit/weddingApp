@@ -339,3 +339,4 @@ export const Categories = () => {
     </div>
   );
 };
+

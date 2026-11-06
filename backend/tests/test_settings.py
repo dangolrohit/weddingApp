@@ -42,3 +42,4 @@ class SiteSettingsTests(TestCase):
         self.assertEqual(response.data['delivery']['link_valid_days'], 10)
         # Verify defaults preserved for untouched keys
         self.assertEqual(response.data['delivery']['max_downloads'], 10)
+

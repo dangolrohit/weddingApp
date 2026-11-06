@@ -80,3 +80,4 @@ export const PasskeyModal = ({ isOpen, onClose, passkey, clientNames, isRegenera
     </Modal>
   );
 };
+

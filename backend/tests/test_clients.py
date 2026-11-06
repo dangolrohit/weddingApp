@@ -102,3 +102,4 @@ class ClientTests(TestCase):
 
         client.refresh_from_db()
         self.assertFalse(client.is_deleted)
+

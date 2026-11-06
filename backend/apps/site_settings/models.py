@@ -78,3 +78,4 @@ class SiteSetting(models.Model):
         obj.value = value
         obj.save()
         return obj
+

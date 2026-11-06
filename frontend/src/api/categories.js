@@ -22,3 +22,4 @@ export const categoriesApi = {
     return response.data;
   },
 };
+

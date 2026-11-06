@@ -12,3 +12,4 @@ urlpatterns = [
     path('admin/clients/<uuid:pk>/regenerate-passkey', ClientPasskeyRegenerateView.as_view(), name='admin_client_regenerate_passkey'),
     path('admin/clients/<uuid:pk>/restore', ClientRestoreView.as_view(), name='admin_client_restore'),
 ]
+

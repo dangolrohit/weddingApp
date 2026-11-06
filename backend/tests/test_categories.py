@@ -50,3 +50,4 @@ class CategoryTests(TestCase):
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Category.objects.filter(id=cat.id).exists())
+

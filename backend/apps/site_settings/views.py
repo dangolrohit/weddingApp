@@ -100,3 +100,4 @@ class BrandingLogoUploadView(APIView):
             'detail': 'Studio logo uploaded successfully.',
             'logo_key': storage_key
         }, status=status.HTTP_200_OK)
+
