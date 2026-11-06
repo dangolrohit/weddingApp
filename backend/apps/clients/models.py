@@ -20,6 +20,7 @@ class Client(models.Model):
     email_locked = models.BooleanField(default=False)
     phone = models.CharField(max_length=50, blank=True, null=True)
     event_date = models.DateField(blank=True, null=True)
+    package_price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     category = models.ForeignKey(
         'categories.Category',
         on_delete=models.SET_NULL,

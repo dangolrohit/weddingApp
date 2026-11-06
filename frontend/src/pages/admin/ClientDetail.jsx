@@ -11,6 +11,7 @@ import { Lightbox } from '../../components/Lightbox';
 import { ShowcasePicker } from '../../components/ShowcasePicker';
 import { SendLinkModal } from '../../components/SendLinkModal';
 import { deliveryApi } from '../../api/delivery';
+import { paymentsApi } from '../../api/payments';
 import { 
   ArrowLeft, 
   Calendar, 
@@ -28,7 +29,12 @@ import {
   Star,
   Clock,
   Sparkles,
-  UploadCloud
+  UploadCloud,
+  CreditCard,
+  DollarSign,
+  Plus,
+  Banknote,
+  Smartphone
 } from 'lucide-react';
 
 export const ClientDetail = () => {
@@ -50,6 +56,7 @@ export const ClientDetail = () => {
   const [groomName, setGroomName] = useState('');
   const [brideName, setBrideName] = useState('');
   const [eventDate, setEventDate] = useState('');
+  const [packagePrice, setPackagePrice] = useState('0.00');
   const [categoryId, setCategoryId] = useState('');
   const [phone, setPhone] = useState('');
   const [linkedEmail, setLinkedEmail] = useState('');
@@ -62,13 +69,26 @@ export const ClientDetail = () => {
   const [lightboxIndex, setLightboxIndex] = useState(null);
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState('photos'); // 'photos', 'showcase', 'links'
+  const [activeTab, setActiveTab] = useState('photos'); // 'photos', 'showcase', 'links', 'payments'
   const [showUploadModal, setShowUploadModal] = useState(false);
 
   // Send Link Modal & Link History State
   const [sendModalOpen, setSendModalOpen] = useState(false);
   const [links, setLinks] = useState([]);
   const [loadingLinks, setLoadingLinks] = useState(false);
+
+  // Payments Tab State
+  const [paymentData, setPaymentData] = useState(null);
+  const [loadingPayments, setLoadingPayments] = useState(false);
+  const [recordPayOpen, setRecordPayOpen] = useState(false);
+  const [payAmount, setPayAmount] = useState('');
+  const [payMethod, setPayMethod] = useState('cash');
+  const [payType, setPayType] = useState('advance');
+  const [payDate, setPayDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [payRef, setPayRef] = useState('');
+  const [payNotes, setPayNotes] = useState('');
+  const [paySaving, setPaySaving] = useState(false);
+  const [payError, setPayError] = useState('');
 
   const fetchClientData = useCallback(async () => {
     try {
@@ -109,6 +129,75 @@ export const ClientDetail = () => {
     }
   }, [activeTab, fetchLinks]);
 
+  const fetchPayments = useCallback(async () => {
+    setLoadingPayments(true);
+    try {
+      const data = await paymentsApi.getClientPayments(id);
+      setPaymentData(data);
+    } catch {
+      // ignore
+    } finally {
+      setLoadingPayments(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'payments') {
+      fetchPayments();
+    }
+  }, [activeTab, fetchPayments]);
+
+  const handleOpenRecordPay = () => {
+    setPayAmount('');
+    setPayMethod('cash');
+    setPayType('advance');
+    setPayDate(new Date().toISOString().split('T')[0]);
+    setPayRef('');
+    setPayNotes('');
+    setPayError('');
+    setRecordPayOpen(true);
+  };
+
+  const handleSavePayment = async (e) => {
+    e.preventDefault();
+    const numAmount = parseFloat(payAmount);
+    if (!numAmount || numAmount <= 0) {
+      setPayError('Please enter a valid payment amount greater than zero.');
+      return;
+    }
+    setPaySaving(true);
+    setPayError('');
+    try {
+      await paymentsApi.create({
+        client: id,
+        amount: numAmount.toFixed(2),
+        method: payMethod,
+        payment_type: payType,
+        payment_date: payDate,
+        reference_no: payRef.trim() || null,
+        notes: payNotes.trim() || null,
+      });
+      setRecordPayOpen(false);
+      fetchPayments();
+      fetchClientData();
+    } catch (err) {
+      setPayError(err.response?.data?.amount?.[0] || 'Failed to record payment.');
+    } finally {
+      setPaySaving(false);
+    }
+  };
+
+  const handleDeletePayment = async (payId) => {
+    if (!window.confirm('Are you sure you want to delete this payment record?')) return;
+    try {
+      await paymentsApi.delete(payId);
+      fetchPayments();
+      fetchClientData();
+    } catch {
+      alert('Failed to delete payment.');
+    }
+  };
+
   const handleRevokeLink = async (linkId) => {
     if (!window.confirm('Are you sure you want to revoke this download link immediately?')) return;
     try {
@@ -144,6 +233,7 @@ export const ClientDetail = () => {
     setGroomName(client.groom_name);
     setBrideName(client.bride_name);
     setEventDate(client.event_date || '');
+    setPackagePrice(client.package_price || '0.00');
     setCategoryId(client.category?.id || '');
     setPhone(client.phone || '');
     setLinkedEmail(client.linked_email || '');
@@ -162,6 +252,7 @@ export const ClientDetail = () => {
         groom_name: groomName.trim(),
         bride_name: brideName.trim(),
         event_date: eventDate || null,
+        package_price: parseFloat(packagePrice) || 0.00,
         category_id: categoryId || null,
         phone: phone.trim() || null,
         linked_email: linkedEmail.trim() || null,
@@ -401,6 +492,17 @@ export const ClientDetail = () => {
           <Clock className="w-3.5 h-3.5" />
           <span>Delivery History</span>
         </button>
+        <button
+          onClick={() => setActiveTab('payments')}
+          className={`pb-3 px-4 text-xs font-semibold tracking-wider uppercase border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
+            activeTab === 'payments'
+              ? 'border-amber-600 text-amber-900'
+              : 'border-transparent text-stone-400 hover:text-stone-700'
+          }`}
+        >
+          <CreditCard className="w-3.5 h-3.5" />
+          <span>Payments & Billing</span>
+        </button>
       </div>
 
       {/* Tab Panels */}
@@ -541,6 +643,134 @@ export const ClientDetail = () => {
         </div>
       )}
 
+      {/* Payments Tab Panel */}
+      {activeTab === 'payments' && (
+        <div className="space-y-6">
+          {/* Summary Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div className="bg-white rounded-2xl p-4 border border-stone-200/80 shadow-sm">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-stone-500">Contract Package</span>
+              <p className="text-xl font-serif font-bold text-stone-900 mt-1">
+                ${Number(paymentData?.package_price ?? client.package_price ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="bg-white rounded-2xl p-4 border border-stone-200/80 shadow-sm">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600">Total Paid</span>
+              <p className="text-xl font-serif font-bold text-emerald-700 mt-1">
+                ${Number(paymentData?.total_paid ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="bg-white rounded-2xl p-4 border border-stone-200/80 shadow-sm">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-rose-500">Remaining Balance</span>
+              <p className="text-xl font-serif font-bold text-rose-600 mt-1">
+                ${Number(paymentData?.pending_balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="bg-white rounded-2xl p-4 border border-stone-200/80 shadow-sm flex flex-col justify-between">
+              <div>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-stone-500">Status</span>
+                <div className="mt-1">
+                  <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider ${
+                    paymentData?.payment_status === 'paid'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : paymentData?.payment_status === 'partial'
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-rose-100 text-rose-800'
+                  }`}>
+                    {paymentData?.payment_status || 'unpaid'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Payments Table Header */}
+          <div className="bg-white rounded-2xl border border-stone-200/80 p-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 mb-4 border-b border-stone-100">
+              <div>
+                <h3 className="font-semibold text-stone-900 text-sm">Payment Receipts & History</h3>
+                <p className="text-xs text-stone-400 mt-0.5">Record advance booking deposit, milestones, and cash/online payments.</p>
+              </div>
+              <button
+                onClick={handleOpenRecordPay}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-medium transition-colors shadow-sm cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Record Payment</span>
+              </button>
+            </div>
+
+            {loadingPayments ? (
+              <div className="py-12 text-center text-xs text-stone-400">Loading payments...</div>
+            ) : !paymentData?.payments?.length ? (
+              <div className="py-12 text-center text-stone-500 text-xs space-y-2">
+                <CreditCard className="w-8 h-8 text-stone-300 mx-auto mb-2" />
+                <p>No payments recorded for this client yet.</p>
+                <button
+                  onClick={handleOpenRecordPay}
+                  className="px-4 py-2 rounded-xl bg-stone-100 text-stone-700 hover:bg-stone-200 text-xs font-medium cursor-pointer"
+                >
+                  Record First Payment
+                </button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-stone-600">
+                  <thead className="bg-stone-50 border-b border-stone-100 uppercase tracking-wider text-[11px] text-stone-400 font-semibold">
+                    <tr>
+                      <th className="py-3 px-4">Date</th>
+                      <th className="py-3 px-4">Amount</th>
+                      <th className="py-3 px-4">Method</th>
+                      <th className="py-3 px-4">Stage</th>
+                      <th className="py-3 px-4">Reference / Txn</th>
+                      <th className="py-3 px-4">Notes</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100">
+                    {paymentData.payments.map((p) => (
+                      <tr key={p.id} className="hover:bg-stone-50/60 transition-colors">
+                        <td className="py-3 px-4 whitespace-nowrap">{p.payment_date}</td>
+                        <td className="py-3 px-4 font-bold text-stone-900 font-serif">
+                          ${Number(p.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                            p.method === 'cash' ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'
+                          }`}>
+                            {p.method_display || p.method}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="inline-flex px-2 py-0.5 rounded text-[11px] font-medium bg-stone-100 text-stone-700">
+                            {p.payment_type_display || p.payment_type}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 font-mono text-[11px] text-stone-500">
+                          {p.reference_no || '—'}
+                        </td>
+                        <td className="py-3 px-4 text-stone-500 max-w-xs truncate">
+                          {p.notes || '—'}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            onClick={() => handleDeletePayment(p.id)}
+                            className="p-1 text-stone-400 hover:text-rose-600 transition-colors"
+                            title="Delete payment"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Lightbox Viewer */}
       {lightboxIndex !== null && (
         <Lightbox
@@ -649,15 +879,30 @@ export const ClientDetail = () => {
             </div>
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1">
-                Linked Email
+                Package Price ($)
               </label>
               <input
-                type="email"
-                value={linkedEmail}
-                onChange={(e) => setLinkedEmail(e.target.value)}
+                type="number"
+                step="0.01"
+                min="0"
+                value={packagePrice}
+                onChange={(e) => setPackagePrice(e.target.value)}
+                placeholder="0.00"
                 className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1">
+              Linked Email
+            </label>
+            <input
+              type="email"
+              value={linkedEmail}
+              onChange={(e) => setLinkedEmail(e.target.value)}
+              className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+            />
           </div>
 
           <div>
@@ -725,6 +970,136 @@ export const ClientDetail = () => {
           fetchLinks();
         }}
       />
+
+      {/* Record Payment Modal for this client */}
+      <Modal
+        isOpen={recordPayOpen}
+        onClose={() => setRecordPayOpen(false)}
+        title={`Record Payment for ${client.groom_name} & ${client.bride_name}`}
+      >
+        <form onSubmit={handleSavePayment} className="space-y-4">
+          {payError && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span>{payError}</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1.5">
+                Amount ($) *
+              </label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 font-bold">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  placeholder="0.00"
+                  value={payAmount}
+                  onChange={(e) => setPayAmount(e.target.value)}
+                  className="w-full pl-8 pr-4 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1.5">
+                Method *
+              </label>
+              <select
+                value={payMethod}
+                onChange={(e) => setPayMethod(e.target.value)}
+                className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+              >
+                <option value="cash">Cash</option>
+                <option value="online">Online / Wire Transfer</option>
+                <option value="upi">UPI / QR Code</option>
+                <option value="card">Credit / Debit Card</option>
+                <option value="cheque">Cheque</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1.5">
+                Stage *
+              </label>
+              <select
+                value={payType}
+                onChange={(e) => setPayType(e.target.value)}
+                className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+              >
+                <option value="advance">Advance / Booking Deposit</option>
+                <option value="partial">Partial Payment / Milestone</option>
+                <option value="installment">Installment</option>
+                <option value="final">Final Settlement</option>
+                <option value="full">Full Payment</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1.5">
+                Date *
+              </label>
+              <input
+                type="date"
+                required
+                value={payDate}
+                onChange={(e) => setPayDate(e.target.value)}
+                className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1.5">
+              Reference / Txn ID
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. TXN-9982, Cheque 0014, Receipt #3"
+              value={payRef}
+              onChange={(e) => setPayRef(e.target.value)}
+              className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1.5">
+              Notes
+            </label>
+            <textarea
+              rows={2}
+              placeholder="Payment remarks..."
+              value={payNotes}
+              onChange={(e) => setPayNotes(e.target.value)}
+              className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 resize-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-stone-100">
+            <button
+              type="button"
+              onClick={() => setRecordPayOpen(false)}
+              className="px-4 py-2 text-xs font-medium text-stone-600 hover:text-stone-900"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={paySaving}
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-stone-950 font-medium rounded-xl text-xs transition-colors disabled:opacity-50"
+            >
+              {paySaving ? 'Saving...' : 'Record Payment'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

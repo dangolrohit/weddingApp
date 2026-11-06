@@ -36,6 +36,8 @@ INSTALLED_APPS = [
     'apps.site_settings',
     'apps.public_site',
     'apps.storage_stats',
+    'apps.payments',
+    'apps.equipment',
 ]
 
 MIDDLEWARE = [

@@ -244,4 +244,148 @@ test.describe('Wedding Photo Delivery Platform - End to End Verification', () =>
     await expect(page.locator('body')).toContainText(/settings saved successfully/i);
   });
 
+  test('9. Admin Payments - Record Cash & Online Payments, Filter, Balance Verification', async ({ page }) => {
+    await loginAsAdmin(page);
+
+    // Navigate to Payments via navbar link
+    const paymentsNavLink = page.getByRole('link', { name: 'Payments' });
+    await expect(paymentsNavLink).toBeVisible();
+    await paymentsNavLink.click();
+    await page.waitForURL('**/admin/payments');
+    await page.waitForLoadState('networkidle');
+
+    // Verify Title & Metrics
+    await expect(page.locator('body')).toContainText(/payments & receipts/i);
+    await expect(page.locator('body')).toContainText(/total collected/i);
+
+    // 1. Record an Advance Payment (Cash)
+    await page.getByRole('button', { name: /record payment/i }).click();
+    const modal = page.locator('div[role="dialog"]');
+    await expect(modal).toBeVisible();
+
+    // Select Client if not already selected
+    const clientSelect = modal.locator('select').first();
+    const clientOptions = await clientSelect.locator('option').count();
+    expect(clientOptions).toBeGreaterThan(1); // at least one client option
+
+    await modal.locator('input[type="number"]').fill('2500');
+    // Select cash method
+    await modal.locator('select').nth(1).selectOption('cash');
+    // Select advance stage
+    await modal.locator('select').nth(2).selectOption('advance');
+    // Reference number
+    await modal.locator('input[placeholder*="TXN"]').fill('RCPT-CASH-101');
+    // Notes
+    await modal.locator('textarea').fill('Initial cash deposit collected at studio office');
+
+    // Submit
+    await modal.getByRole('button', { name: 'Record Payment' }).click();
+    await page.waitForLoadState('networkidle');
+
+    // Verify payment in table
+    await expect(page.locator('body')).toContainText(/2,500\.00/);
+    await expect(page.locator('body')).toContainText(/RCPT-CASH-101/);
+
+    // 2. Record a Partial Payment (Online Transfer)
+    await page.getByRole('button', { name: /record payment/i }).click();
+    await expect(modal).toBeVisible();
+
+    await modal.locator('input[type="number"]').fill('3500');
+    // Select online method
+    await modal.locator('select').nth(1).selectOption('online');
+    // Select partial stage
+    await modal.locator('select').nth(2).selectOption('partial');
+    // Reference number
+    await modal.locator('input[placeholder*="TXN"]').fill('TXN-WIRE-7788');
+    // Notes
+    await modal.locator('textarea').fill('Online wire transfer payment');
+
+    // Submit
+    await modal.getByRole('button', { name: 'Record Payment' }).click();
+    await page.waitForLoadState('networkidle');
+
+    // Verify payment in table
+    await expect(page.locator('body')).toContainText(/3,500\.00/);
+    await expect(page.locator('body')).toContainText(/TXN-WIRE-7788/);
+
+    // 3. Search and Filters
+    const searchInput = page.locator('input[placeholder*="Search by client"]');
+    await searchInput.fill('TXN-WIRE-7788');
+    await page.waitForTimeout(300);
+    await expect(page.locator('body')).toContainText(/TXN-WIRE-7788/);
+    await expect(page.locator('body')).not.toContainText(/RCPT-CASH-101/);
+
+    // Clear search
+    await searchInput.fill('');
+    await page.waitForTimeout(300);
+    await expect(page.locator('body')).toContainText(/RCPT-CASH-101/);
+  });
+
+  test('10. Admin Equipment - Add, Filter, Edit, and Delete Gear Record', async ({ page }) => {
+    await loginAsAdmin(page);
+
+    // Navigate to Equipment via navbar link
+    const equipmentNavLink = page.getByRole('link', { name: 'Equipment' });
+    await expect(equipmentNavLink).toBeVisible();
+    await equipmentNavLink.click();
+    await page.waitForURL('**/admin/equipment');
+    await page.waitForLoadState('networkidle');
+
+    // Verify Title & Metrics
+    await expect(page.locator('body')).toContainText(/equipment inventory/i);
+    await expect(page.locator('body')).toContainText(/total gear/i);
+
+    // 1. Add Equipment Item
+    await page.getByRole('button', { name: /add equipment/i }).click();
+    const modal = page.locator('div[role="dialog"]');
+    await expect(modal).toBeVisible();
+
+    await modal.locator('input[placeholder*="Sony Alpha"]').fill('Canon EOS R5 Mark II');
+    await modal.locator('select').first().selectOption('camera');
+    await modal.locator('input[placeholder*="Sony, Canon"]').fill('Canon');
+    await modal.locator('input[placeholder*="ILCE-7M4"]').fill('EOS R5 Mark II');
+    await modal.locator('input[placeholder*="SN-8924017"]').fill('SN-CANON-889900');
+    await modal.locator('input[type="number"]').fill('3899.00');
+    await modal.locator('textarea').fill('Primary cinema camera for 8K RAW wedding films');
+
+    // Submit
+    await modal.getByRole('button', { name: 'Add Equipment' }).click();
+    await page.waitForLoadState('networkidle');
+
+    // Verify gear is in table
+    await expect(page.locator('body')).toContainText(/Canon EOS R5 Mark II/);
+    await expect(page.locator('body')).toContainText(/SN-CANON-889900/);
+    await expect(page.locator('body')).toContainText(/3,899\.00/);
+
+    // 2. Edit Equipment Item
+    const editBtn = page.locator('button[title="Edit equipment"]').first();
+    await editBtn.click();
+    await expect(modal).toBeVisible();
+
+    // Change status to in_use and set assigned to
+    await modal.locator('select').nth(1).selectOption('in_use');
+    await modal.locator('input[placeholder*="Lead Photographer"]').fill('Alex (Cinematographer)');
+
+    // Save changes
+    await modal.getByRole('button', { name: 'Update Equipment' }).click();
+    await page.waitForLoadState('networkidle');
+
+    // Verify updated status and assignment
+    await expect(page.locator('body')).toContainText(/Alex \(Cinematographer\)/);
+
+    // 3. Delete Equipment Item
+    const deleteBtn = page.locator('button[title="Delete equipment"]').first();
+    await deleteBtn.click();
+
+    // Confirm deletion in delete dialog
+    const deleteModal = page.locator('div[role="dialog"]');
+    await expect(deleteModal).toBeVisible();
+    await expect(deleteModal).toContainText(/confirm equipment deletion/i);
+    await deleteModal.getByRole('button', { name: 'Delete Equipment' }).click();
+    await page.waitForLoadState('networkidle');
+
+    // Verify item deleted from table
+    await expect(page.locator('body')).not.toContainText(/SN-CANON-889900/);
+  });
+
 });

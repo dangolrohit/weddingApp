@@ -40,6 +40,8 @@ urlpatterns = [
     path('api/public/', include('apps.public_site.urls')),
     path('api/', include('apps.delivery.urls')),
     path('api/', include('apps.storage_stats.urls')),
+    path('api/', include('apps.payments.urls')),
+    path('api/', include('apps.equipment.urls')),
     path('api/', include('apps.core.urls')),
     path('', include('apps.photos.urls')),
 ]

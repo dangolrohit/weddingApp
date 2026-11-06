@@ -4,6 +4,8 @@ import { useAuth } from '../hooks/useAuth';
 import { 
   LayoutDashboard, 
   Users, 
+  CreditCard,
+  Package,
   Tag, 
   HardDrive, 
   Settings, 
@@ -27,6 +29,8 @@ export const AdminLayout = () => {
   const navItems = [
     { label: 'Dashboard', path: '/admin', icon: LayoutDashboard, end: true },
     { label: 'Clients', path: '/admin/clients', icon: Users },
+    { label: 'Payments', path: '/admin/payments', icon: CreditCard },
+    { label: 'Equipment', path: '/admin/equipment', icon: Package },
     { label: 'Categories', path: '/admin/categories', icon: Tag },
     { label: 'Storage', path: '/admin/storage', icon: HardDrive },
     { label: 'Settings', path: '/admin/settings', icon: Settings },

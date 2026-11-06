@@ -44,6 +44,7 @@ export const Clients = () => {
   const [groomName, setGroomName] = useState('');
   const [brideName, setBrideName] = useState('');
   const [eventDate, setEventDate] = useState('');
+  const [packagePrice, setPackagePrice] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [phone, setPhone] = useState('');
   const [linkedEmail, setLinkedEmail] = useState('');
@@ -119,6 +120,7 @@ export const Clients = () => {
         groom_name: groomName.trim(),
         bride_name: brideName.trim(),
         event_date: eventDate || null,
+        package_price: parseFloat(packagePrice) || 0.00,
         category_id: categoryId || null,
         phone: phone.trim() || null,
         linked_email: linkedEmail.trim() || null,
@@ -131,6 +133,7 @@ export const Clients = () => {
       setGroomName('');
       setBrideName('');
       setEventDate('');
+      setPackagePrice('');
       setCategoryId('');
       setPhone('');
       setLinkedEmail('');
@@ -615,16 +618,31 @@ export const Clients = () => {
 
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1">
-                Linked Email (Optional)
+                Package Price ($)
               </label>
               <input
-                type="email"
-                value={linkedEmail}
-                onChange={(e) => setLinkedEmail(e.target.value)}
-                placeholder="couple@example.com"
+                type="number"
+                step="0.01"
+                min="0"
+                value={packagePrice}
+                onChange={(e) => setPackagePrice(e.target.value)}
+                placeholder="0.00"
                 className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-600"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1">
+              Linked Email (Optional)
+            </label>
+            <input
+              type="email"
+              value={linkedEmail}
+              onChange={(e) => setLinkedEmail(e.target.value)}
+              placeholder="couple@example.com"
+              className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-600"
+            />
           </div>
 
           <div>

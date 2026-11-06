@@ -9,14 +9,42 @@ class ClientListSerializer(serializers.ModelSerializer):
     category_slug = serializers.CharField(source='category.slug', read_only=True)
     cover_photo = serializers.SerializerMethodField()
     link_status = serializers.SerializerMethodField()
+    total_paid = serializers.SerializerMethodField()
+    pending_balance = serializers.SerializerMethodField()
+    payment_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Client
         fields = (
             'id', 'groom_name', 'bride_name', 'event_date', 'category',
             'category_name', 'category_slug', 'photo_count', 'storage_bytes',
+            'package_price', 'total_paid', 'pending_balance', 'payment_status',
             'status', 'link_status', 'cover_photo', 'deleted_at', 'created_at'
         )
+
+    def get_total_paid(self, obj):
+        from django.db.models import Sum
+        payments = getattr(obj, 'payments', None)
+        if payments:
+            res = payments.aggregate(total=Sum('amount'))['total']
+            return float(res) if res else 0.0
+        return 0.0
+
+    def get_pending_balance(self, obj):
+        total_paid = self.get_total_paid(obj)
+        price = float(obj.package_price or 0.0)
+        return max(0.0, round(price - total_paid, 2))
+
+    def get_payment_status(self, obj):
+        total_paid = self.get_total_paid(obj)
+        price = float(obj.package_price or 0.0)
+        if price == 0 and total_paid == 0:
+            return 'unspecified'
+        if total_paid >= price and price > 0:
+            return 'paid'
+        if total_paid > 0:
+            return 'partial'
+        return 'unpaid'
 
     def get_cover_photo(self, obj):
         # Once photos app is populated, returns first showcase or first photo thumb
@@ -49,16 +77,45 @@ class ClientDetailSerializer(serializers.ModelSerializer):
         allow_null=True
     )
     link_status = serializers.SerializerMethodField()
+    total_paid = serializers.SerializerMethodField()
+    pending_balance = serializers.SerializerMethodField()
+    payment_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Client
         fields = (
             'id', 'groom_name', 'bride_name', 'name_key', 'linked_email',
-            'email_locked', 'phone', 'event_date', 'category', 'category_id',
+            'email_locked', 'phone', 'event_date', 'package_price',
+            'total_paid', 'pending_balance', 'payment_status',
+            'category', 'category_id',
             'status', 'notes', 'photo_count', 'storage_bytes', 'link_status',
             'deleted_at', 'created_by', 'created_at', 'updated_at'
         )
-        read_only_fields = ('id', 'name_key', 'photo_count', 'storage_bytes', 'created_at', 'updated_at', 'link_status')
+        read_only_fields = ('id', 'name_key', 'photo_count', 'storage_bytes', 'created_at', 'updated_at', 'link_status', 'total_paid', 'pending_balance', 'payment_status')
+
+    def get_total_paid(self, obj):
+        from django.db.models import Sum
+        payments = getattr(obj, 'payments', None)
+        if payments:
+            res = payments.aggregate(total=Sum('amount'))['total']
+            return float(res) if res else 0.0
+        return 0.0
+
+    def get_pending_balance(self, obj):
+        total_paid = self.get_total_paid(obj)
+        price = float(obj.package_price or 0.0)
+        return max(0.0, round(price - total_paid, 2))
+
+    def get_payment_status(self, obj):
+        total_paid = self.get_total_paid(obj)
+        price = float(obj.package_price or 0.0)
+        if price == 0 and total_paid == 0:
+            return 'unspecified'
+        if total_paid >= price and price > 0:
+            return 'paid'
+        if total_paid > 0:
+            return 'partial'
+        return 'unpaid'
 
     def get_link_status(self, obj):
         latest_link = getattr(obj, 'download_links', None)
@@ -83,7 +140,7 @@ class ClientCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
         fields = (
-            'id', 'groom_name', 'bride_name', 'event_date', 'category_id',
+            'id', 'groom_name', 'bride_name', 'event_date', 'package_price', 'category_id',
             'phone', 'linked_email', 'notes', 'status', 'raw_passkey'
         )
 

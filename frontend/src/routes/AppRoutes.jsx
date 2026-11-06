@@ -7,6 +7,8 @@ import { Login } from '../pages/admin/Login';
 import { Dashboard } from '../pages/admin/Dashboard';
 import { Clients } from '../pages/admin/Clients';
 import { ClientDetail } from '../pages/admin/ClientDetail';
+import { Payments } from '../pages/admin/Payments';
+import { Equipment } from '../pages/admin/Equipment';
 import { Categories } from '../pages/admin/Categories';
 import { Settings } from '../pages/admin/Settings';
 import { Storage } from '../pages/admin/Storage';
@@ -39,6 +41,8 @@ export const AppRoutes = () => {
         <Route index element={<Dashboard />} />
         <Route path="clients" element={<Clients />} />
         <Route path="clients/:id" element={<ClientDetail />} />
+        <Route path="payments" element={<Payments />} />
+        <Route path="equipment" element={<Equipment />} />
         <Route path="categories" element={<Categories />} />
         <Route path="storage" element={<Storage />} />
         <Route path="settings" element={<Settings />} />
