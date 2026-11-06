@@ -49,3 +49,4 @@ echo "    Old backups cleaned."
 echo "=================================================="
 echo "Backup Completed Successfully at $(date)"
 echo "=================================================="
+

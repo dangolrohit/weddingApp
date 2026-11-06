@@ -51,5 +51,14 @@ dist-ssr/
 .DS_Store
 Thumbs.db
 *.bak
+
+# Playwright Test Artifacts
+test-results/
+playwright-report/
+frontend/test-results/
+frontend/playwright-report/
+.DS_Store
+Thumbs.db
+*.bak
 *.tmp
 

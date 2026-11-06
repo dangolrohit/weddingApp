@@ -10,3 +10,4 @@ class HealthCheckTest(TestCase):
         self.assertEqual(data['app'], 'wedding-photo-platform')
         self.assertIn('checks', data)
         self.assertTrue(data['checks']['database'])
+

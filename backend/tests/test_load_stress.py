@@ -82,3 +82,4 @@ class LoadAndStressTests(TestCase):
         self.assertEqual(len(bundle.parts), 2)
         total_photos_in_parts = sum(p['photo_count'] for p in bundle.parts)
         self.assertEqual(total_photos_in_parts, 50)
+

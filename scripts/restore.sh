@@ -57,3 +57,4 @@ docker compose exec -T backend python manage.py shell -c "from apps.storage_stat
 echo "=================================================="
 echo "Platform Recovery Completed Successfully at $(date)"
 echo "=================================================="
+
