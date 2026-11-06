@@ -12,3 +12,4 @@ urlpatterns = [
     path('admin/payments/<uuid:pk>', PaymentDetailView.as_view(), name='admin_payment_detail'),
     path('admin/clients/<uuid:client_pk>/payments', ClientPaymentsListView.as_view(), name='admin_client_payments'),
 ]
+

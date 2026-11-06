@@ -22,3 +22,4 @@ class EquipmentSerializer(serializers.ModelSerializer):
         if request and request.user and request.user.is_authenticated:
             validated_data['created_by'] = request.user
         return super().create(validated_data)
+

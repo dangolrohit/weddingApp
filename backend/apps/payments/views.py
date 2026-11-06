@@ -105,3 +105,4 @@ class PaymentSummaryView(APIView):
             'total_transactions': total_transactions,
             'recent_payments': recent_serializer.data
         })
+

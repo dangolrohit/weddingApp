@@ -30,3 +30,4 @@ export const paymentsApi = {
     return response.data;
   },
 };
+

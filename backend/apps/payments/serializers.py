@@ -46,3 +46,4 @@ class PaymentSerializer(serializers.ModelSerializer):
         if request and request.user and request.user.is_authenticated:
             validated_data['recorded_by'] = request.user
         return super().create(validated_data)
+

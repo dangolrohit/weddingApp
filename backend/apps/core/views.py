@@ -99,11 +99,32 @@ class AdminDashboardView(APIView):
                 'count': count
             })
 
+        # 10. Financial summary
+        from django.db.models import Sum
+        from apps.payments.models import Payment
+        total_collected = Payment.objects.aggregate(total=Sum('amount'))['total'] or 0.0
+        total_contracts = clients_qs.aggregate(total=Sum('package_price'))['total'] or 0.0
+        pending_balance = max(0.0, float(total_contracts) - float(total_collected))
+
+        # 11. Equipment summary
+        from apps.equipment.models import Equipment
+        total_gear = Equipment.objects.count()
+        gear_available = Equipment.objects.filter(status='available').count()
+
         return Response({
             'total_clients': total_clients,
             'new_clients_this_month': new_clients_month,
             'total_photos': total_photos,
             'categories': categories_data,
+            'financials': {
+                'total_collected': float(total_collected),
+                'total_contracts': float(total_contracts),
+                'pending_balance': float(pending_balance),
+            },
+            'equipment': {
+                'total_gear': total_gear,
+                'gear_available': gear_available,
+            },
             'storage': {
                 'total_bytes': storage_stats['total_disk_bytes'],
                 'free_bytes': storage_stats['free_disk_bytes'],

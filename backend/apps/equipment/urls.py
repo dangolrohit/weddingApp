@@ -10,3 +10,4 @@ urlpatterns = [
     path('admin/equipment/summary', EquipmentSummaryView.as_view(), name='admin_equipment_summary'),
     path('admin/equipment/<uuid:pk>', EquipmentDetailView.as_view(), name='admin_equipment_detail'),
 ]
+

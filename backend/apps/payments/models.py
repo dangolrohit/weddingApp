@@ -62,3 +62,4 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"{self.client} - {self.amount} ({self.get_method_display()})"
+

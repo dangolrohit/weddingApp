@@ -58,3 +58,4 @@ class EquipmentSummaryView(APIView):
             'retired_count': retired_count,
             'by_category': by_category,
         })
+

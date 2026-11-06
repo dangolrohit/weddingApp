@@ -175,3 +175,4 @@ class PaymentsEquipmentTests(TestCase):
 
         res_eq = self.client.get(reverse('admin_equipment_list_create'))
         self.assertEqual(res_eq.status_code, status.HTTP_401_UNAUTHORIZED)
+
