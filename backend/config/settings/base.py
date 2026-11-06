@@ -149,6 +149,11 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
 CELERY_WORKER_CONCURRENCY = 2
 
+import sys
+if 'test' in sys.argv:
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+
 # Celery Beat Scheduled Tasks (Daily Cleanup, Expired Links, Trash Purge, Storage Recount)
 CELERY_BEAT_SCHEDULE = {
     'daily-cleanup-job': {

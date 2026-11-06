@@ -34,7 +34,7 @@ export const Lightbox = ({ photos, currentIndex, onClose, onNavigate }) => {
             {currentIndex + 1} / {photos.length}
           </span>
           <span className="text-xs text-stone-400 truncate max-w-xs sm:max-w-md">
-            {currentPhoto.original_filename}
+            {currentPhoto.original_filename || currentPhoto.category_name || 'Showcase Photo'}
           </span>
         </div>
 
@@ -61,8 +61,8 @@ export const Lightbox = ({ photos, currentIndex, onClose, onNavigate }) => {
         )}
 
         <img
-          src={currentPhoto.preview_url}
-          alt={currentPhoto.original_filename}
+          src={currentPhoto.url || currentPhoto.preview_url}
+          alt={currentPhoto.original_filename || currentPhoto.category_name || 'Showcase photo'}
           className="max-h-full max-w-full object-contain rounded shadow-2xl transition-all duration-200"
         />
 

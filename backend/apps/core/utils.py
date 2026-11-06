@@ -8,21 +8,24 @@ from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
 # Unambiguous characters for passkeys (excluding 0, O, 1, I, L)
 UNAMBIGUOUS_CHARS = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
 
+STOP_WORDS = {'groom', 'bride', 'mr', 'mrs', 'ms', 'and'}
+
 def normalize_name_key(groom_name: str, bride_name: str) -> str:
     """
     Normalizes groom and bride names for robust matching:
     - Lowercase
+    - Strip common prefixes/stop words ('groom', 'bride', 'mr', 'mrs', 'and')
     - Strip punctuation and symbols
     - Split into individual words
     - Sort words alphabetically
     - Join with a single space
-    Example: 'John Doe' & 'Jane Smith' -> 'doe jane john smith'
+    Example: 'Groom: John Doe' & 'Bride: Jane Smith' -> 'doe jane john smith'
              'Jane Smith' & 'John Doe' -> 'doe jane john smith'
     """
     combined = f"{groom_name or ''} {bride_name or ''}".lower()
     # Replace non-alphanumeric characters with spaces
     cleaned = re.sub(r'[^a-z0-9\s]', ' ', combined)
-    words = [w for w in cleaned.split() if w]
+    words = [w for w in cleaned.split() if w and w not in STOP_WORDS]
     words.sort()
     return " ".join(words)
 

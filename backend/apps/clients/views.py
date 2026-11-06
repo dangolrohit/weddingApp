@@ -32,9 +32,12 @@ class ClientListCreateView(APIView):
         # Category filter
         category = request.query_params.get('category', '').strip()
         if category:
-            queryset = queryset.filter(
-                Q(category_id=category) | Q(category__slug=category)
-            )
+            try:
+                import uuid
+                cat_uuid = uuid.UUID(category)
+                queryset = queryset.filter(Q(category_id=cat_uuid) | Q(category__slug=category))
+            except ValueError:
+                queryset = queryset.filter(category__slug=category)
 
         # Status filter
         client_status = request.query_params.get('status', '').strip()

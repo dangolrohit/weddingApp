@@ -7,6 +7,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 from rest_framework import status
 
+from django.conf import settings
 from apps.accounts.models import User
 from apps.categories.models import Category
 from apps.clients.models import Client
@@ -66,9 +67,15 @@ class PhotoPipelineTests(TestCase):
         self.assertTrue(photo.variants.filter(kind='preview').exists())
 
     def test_showcase_limit_of_three(self):
-        # Create 4 photos for client
+        # Create 4 photos for client with real dummy files on disk
         photos = []
+        orig_dir = Path(settings.MEDIA_ROOT) / 'originals' / str(self.wedding_client.id)
+        orig_dir.mkdir(parents=True, exist_ok=True)
         for i in range(4):
+            img_bytes = create_test_image(800, 600)
+            file_path = orig_dir / f"p_{i}.jpg"
+            with open(file_path, 'wb') as f:
+                f.write(img_bytes.read())
             p = Photo.objects.create(
                 client=self.wedding_client,
                 original_filename=f"p_{i}.jpg",
@@ -93,6 +100,13 @@ class PhotoPipelineTests(TestCase):
         self.assertEqual(fail_response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_protected_file_serving_permissions(self):
+        orig_dir = Path(settings.MEDIA_ROOT) / 'originals' / str(self.wedding_client.id)
+        orig_dir.mkdir(parents=True, exist_ok=True)
+        file_path = orig_dir / "test.jpg"
+        img_bytes = create_test_image(800, 600)
+        with open(file_path, 'wb') as f:
+            f.write(img_bytes.read())
+
         photo = Photo.objects.create(
             client=self.wedding_client,
             original_filename="test.jpg",
@@ -113,6 +127,7 @@ class PhotoPipelineTests(TestCase):
         self.assertEqual(orig_res.status_code, status.HTTP_403_FORBIDDEN)
 
         # 3. Unauthenticated public cannot access thumbnail
+        self.client.force_authenticate(user=None)
         self.client.credentials() # Logout
         anon_res = self.client.get(thumb_url)
         self.assertEqual(anon_res.status_code, status.HTTP_403_FORBIDDEN)
