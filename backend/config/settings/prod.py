@@ -9,6 +9,12 @@ ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_str.split(',') if h.strip()]
 cors_origins_str = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost,http://127.0.0.1')
 CORS_ALLOWED_ORIGINS = [o.strip() for o in cors_origins_str.split(',') if o.strip()]
 
+csrf_trusted_str = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
+if csrf_trusted_str:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in csrf_trusted_str.split(',') if o.strip()]
+elif cors_origins_str:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in cors_origins_str.split(',') if o.strip()]
+
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 X_FRAME_OPTIONS = 'DENY'
 SECURE_CONTENT_TYPE_NOSNIFF = True

@@ -190,11 +190,12 @@ else:
 TURNSTILE_SITE_KEY = os.environ.get('TURNSTILE_SITE_KEY', '')
 TURNSTILE_SECRET_KEY = os.environ.get('TURNSTILE_SECRET_KEY', '')
 
-# Garage S3 Private Object Storage Settings
-GARAGE_S3_ENDPOINT_URL = os.environ.get('GARAGE_S3_ENDPOINT_URL', 'http://127.0.0.1:3900')
-GARAGE_S3_PUBLIC_URL = os.environ.get('GARAGE_S3_PUBLIC_URL', os.environ.get('GARAGE_S3_ENDPOINT_URL', 'http://127.0.0.1:3900'))
-GARAGE_S3_ACCESS_KEY_ID = os.environ.get('GARAGE_S3_ACCESS_KEY_ID', 'garage_dev_key')
-GARAGE_S3_SECRET_ACCESS_KEY = os.environ.get('GARAGE_S3_SECRET_ACCESS_KEY', 'garage_dev_secret')
-GARAGE_S3_REGION = os.environ.get('GARAGE_S3_REGION', 'garage')
-GARAGE_S3_BUCKET_NAME = os.environ.get('GARAGE_S3_BUCKET_NAME', 'wedding-storage')
+# S3 / MinIO / Garage Private Object Storage Settings
+GARAGE_S3_USE_LOCAL_MOCK = os.environ.get('GARAGE_S3_USE_LOCAL_MOCK', '').lower() in ('true', '1', 'yes')
+GARAGE_S3_ENDPOINT_URL = os.environ.get('S3_ENDPOINT_URL', os.environ.get('GARAGE_S3_ENDPOINT_URL', 'http://127.0.0.1:3900'))
+GARAGE_S3_PUBLIC_URL = os.environ.get('S3_PUBLIC_URL', os.environ.get('GARAGE_S3_PUBLIC_URL', GARAGE_S3_ENDPOINT_URL))
+GARAGE_S3_ACCESS_KEY_ID = os.environ.get('S3_ACCESS_KEY_ID', os.environ.get('GARAGE_S3_ACCESS_KEY_ID', 'garage_dev_key'))
+GARAGE_S3_SECRET_ACCESS_KEY = os.environ.get('S3_SECRET_ACCESS_KEY', os.environ.get('GARAGE_S3_SECRET_ACCESS_KEY', 'garage_dev_secret'))
+GARAGE_S3_REGION = os.environ.get('S3_REGION', os.environ.get('GARAGE_S3_REGION', 'us-east-1'))
+GARAGE_S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME', os.environ.get('GARAGE_S3_BUCKET_NAME', 'wedding-storage'))
 

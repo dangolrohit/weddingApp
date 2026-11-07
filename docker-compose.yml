@@ -27,6 +27,53 @@ services:
       timeout: 5s
       retries: 5
 
+  # Coolify S3 Object Storage (MinIO) - Handles 4-5 TB SSD storage directly
+  minio:
+    image: minio/minio:RELEASE.2024-06-29T01-20-47Z
+    container_name: wedding_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-wedding_minio_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-wedding_minio_secure_password}
+      MINIO_BROWSER_REDIRECT_URL: ${SERVICE_FQDN_MINIO_CONSOLE:-http://localhost:9001}
+    volumes:
+      # Mounts the 4-5 TB SSD from your Ubuntu host machine directly into MinIO
+      - ${HOST_STORAGE_PATH:-./media_data/storage}:/data
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    labels:
+      # Coolify / Traefik integration: disable upload buffering for large 10-30 GB direct browser streams
+      - "traefik.enable=true"
+      - "traefik.http.routers.wedding-minio.rule=Host(`${SERVICE_FQDN_MINIO:-s3.localhost}`)"
+      - "traefik.http.routers.wedding-minio.service=wedding-minio"
+      - "traefik.http.services.wedding-minio.loadbalancer.server.port=9000"
+      - "traefik.http.middlewares.minio-stream.buffering.maxRequestBodyBytes=0"
+      - "traefik.http.middlewares.minio-stream.buffering.memRequestBodyBytes=0"
+      - "traefik.http.routers.wedding-minio.middlewares=minio-stream"
+
+  # Automatic 1-shot MinIO provisioner: creates default bucket & sets CORS
+  minio_setup:
+    image: minio/mc:RELEASE.2024-06-29T01-30-22Z
+    container_name: wedding_minio_setup
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-wedding_minio_admin} $${MINIO_ROOT_PASSWORD:-wedding_minio_secure_password};
+      /usr/bin/mc mb --ignore-existing local/wedding-storage;
+      /usr/bin/mc anonymous set download local/wedding-storage;
+      echo 'MinIO wedding-storage bucket initialized and ready!';
+      exit 0;
+      "
+
   backend:
     build:
       context: ./backend
@@ -39,6 +86,13 @@ services:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-config.settings.prod}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - POSTGRES_HOST=db
+      - S3_ENDPOINT_URL=http://minio:9000
+      - S3_PUBLIC_URL=${S3_PUBLIC_URL:-http://localhost:9000}
+      - S3_ACCESS_KEY_ID=${MINIO_ROOT_USER:-wedding_minio_admin}
+      - S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-wedding_minio_secure_password}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-wedding-storage}
+      - S3_REGION=us-east-1
+      - GARAGE_S3_USE_LOCAL_MOCK=false
     volumes:
       - ${HOST_MEDIA_PATH:-./media_data}:/media
       - django_static:/app/staticfiles
@@ -52,6 +106,8 @@ services:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
 
   worker:
@@ -67,6 +123,10 @@ services:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-config.settings.prod}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - POSTGRES_HOST=db
+      - S3_ENDPOINT_URL=http://minio:9000
+      - S3_ACCESS_KEY_ID=${MINIO_ROOT_USER:-wedding_minio_admin}
+      - S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-wedding_minio_secure_password}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-wedding-storage}
     volumes:
       - ${HOST_MEDIA_PATH:-./media_data}:/media
     depends_on:
@@ -132,9 +192,14 @@ services:
         condition: service_healthy
       backend:
         condition: service_healthy
+    labels:
+      # Coolify main application entrypoint
+      - "traefik.enable=true"
+      - "traefik.http.routers.wedding-gateway.rule=Host(`${SERVICE_FQDN_APP:-localhost}`)"
+      - "traefik.http.routers.wedding-gateway.service=wedding-gateway"
+      - "traefik.http.services.wedding-gateway.loadbalancer.server.port=80"
 
 volumes:
   postgres_data:
   redis_data:
   django_static:
-
