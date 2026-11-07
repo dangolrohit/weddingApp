@@ -81,7 +81,8 @@ services:
     container_name: wedding_backend
     restart: unless-stopped
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-config.settings.prod}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
@@ -118,7 +119,8 @@ services:
     restart: unless-stopped
     command: celery -A config worker --concurrency=2 --loglevel=info
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-config.settings.prod}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
@@ -145,7 +147,8 @@ services:
     restart: unless-stopped
     command: celery -A config beat --loglevel=info
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-config.settings.prod}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
@@ -179,8 +182,8 @@ services:
       dockerfile: Dockerfile
     container_name: wedding_gateway
     restart: unless-stopped
-    ports:
-      - "${GATEWAY_PORT:-80}:80"
+    expose:
+      - "80"
     volumes:
       - ${HOST_MEDIA_PATH:-./media_data}:/media:ro
       - django_static:/app/staticfiles:ro
