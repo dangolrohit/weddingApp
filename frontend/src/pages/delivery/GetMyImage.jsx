@@ -164,10 +164,10 @@ export const GetMyImage = () => {
             <Key className="w-6 h-6" />
           </div>
           <h1 className="text-3xl sm:text-4xl font-serif font-bold text-stone-100">
-            Client Gallery Access
+            Client Login
           </h1>
           <p className="text-sm text-stone-400 max-w-sm mx-auto">
-            Enter your names and secret passkey to preview your photos and receive your full collection.
+            Enter your names and secret passkey to access your private wedding gallery and download your collection.
           </p>
         </div>
 

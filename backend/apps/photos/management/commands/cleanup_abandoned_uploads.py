@@ -76,3 +76,4 @@ class Command(BaseCommand):
             f"Aborted {aborted_multiparts} multipart uploads on Garage S3. "
             f"Cleaned {cleaned_media} pending media records."
         ))
+

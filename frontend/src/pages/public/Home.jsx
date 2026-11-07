@@ -137,11 +137,11 @@ export const Home = () => {
             <ArrowRight className="w-4 h-4" />
           </a>
           <Link
-            to="/get-my-image"
+            to="/client-login"
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-stone-800 border border-stone-700 text-stone-200 hover:text-white hover:bg-stone-700 transition-colors"
           >
             <Key className="w-4 h-4 text-amber-400" />
-            <span>Client Passkey Portal</span>
+            <span>Client Login</span>
           </Link>
         </div>
       </section>
@@ -254,10 +254,10 @@ export const Home = () => {
           </div>
 
           <Link
-            to="/get-my-image"
+            to="/client-login"
             className="flex-shrink-0 inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-amber-400 text-stone-950 font-medium hover:bg-amber-300 transition-colors shadow-lg shadow-amber-400/20"
           >
-            <span>Get My Images</span>
+            <span>Client Login</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>

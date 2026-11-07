@@ -51,11 +51,11 @@ export const PublicLayout = () => {
           </Link>
 
           <Link
-            to="/get-my-image"
+            to="/client-login"
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-400 text-stone-950 font-medium text-xs tracking-wide hover:bg-amber-300 transition-colors shadow-sm"
           >
             <Key className="w-3.5 h-3.5" />
-            <span>Get My Image</span>
+            <span>Client Login</span>
           </Link>
 
           <Link

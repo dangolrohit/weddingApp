@@ -240,3 +240,4 @@ server {
 | **Total** | Multi-SSD Pool | **4 TB** | ~80 GB metadata/indexing | **~3.88 TB Usable** |
 
 Direct browser transfers ensure that 10–30 GB client albums upload straight from the photographer's browser to the storage server without touching Python/Django worker memory.
+

@@ -23,6 +23,7 @@ export const AppRoutes = () => {
       {/* Public Pages */}
       <Route path="/" element={<PublicLayout />}>
         <Route index element={<Home />} />
+        <Route path="client-login" element={<GetMyImage />} />
         <Route path="get-my-image" element={<GetMyImage />} />
         <Route path="d/:token" element={<Download />} />
       </Route>

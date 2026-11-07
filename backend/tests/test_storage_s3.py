@@ -312,3 +312,4 @@ class StorageS3Tests(TestCase):
             old_session.refresh_from_db()
             self.assertEqual(old_session.state, 'expired')
             self.assertIn("Aborted 1 multipart uploads", output)
+

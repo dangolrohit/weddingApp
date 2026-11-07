@@ -42,3 +42,4 @@ root_domain = ".web.garage"
 api_bind_addr = "127.0.0.1:3903"
 # Admin token for CLI administration (generate with `openssl rand -hex 16`)
 admin_token = "CHANGE_ME_ADMIN_TOKEN_HEX_16"
+

@@ -202,10 +202,30 @@ export const ClientDetail = () => {
   }, [id]);
 
   useEffect(() => {
-    if (activeTab === 'albums') {
-      fetchAlbums();
+    fetchAlbums();
+  }, [fetchAlbums]);
+
+  const handleOpenDefaultUpload = async () => {
+    let target = selectedAlbum;
+    if (!target && albums.length > 0) {
+      target = albums[0];
+      setSelectedAlbum(target);
     }
-  }, [activeTab, fetchAlbums]);
+    if (!target && client) {
+      try {
+        const defTitle = `${client.groom_name} & ${client.bride_name} Wedding Album`;
+        target = await albumsApi.createClientAlbum(id, {
+          title: defTitle,
+          description: `Primary wedding collection for ${client.groom_name} & ${client.bride_name}.`
+        });
+        await fetchAlbums();
+        setSelectedAlbum(target);
+      } catch (err) {
+        console.error('Failed to auto-create default album:', err);
+      }
+    }
+    setS3UploadOpen(true);
+  };
 
   const fetchAlbumMedia = useCallback(async (albumId) => {
     if (!albumId) return;
@@ -562,11 +582,11 @@ export const ClientDetail = () => {
             </button>
 
             <button
-              onClick={() => setShowUploadModal(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-stone-900 text-stone-100 text-xs font-semibold hover:bg-stone-800 transition-colors shadow-sm cursor-pointer"
+              onClick={handleOpenDefaultUpload}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition-colors shadow-sm cursor-pointer"
             >
-              <UploadCloud className="w-4 h-4 text-amber-400" />
-              <span>Upload Photos</span>
+              <CloudUpload className="w-4 h-4 text-amber-200" />
+              <span>Upload Photos (Garage S3)</span>
             </button>
 
             <button
@@ -689,28 +709,145 @@ export const ClientDetail = () => {
       {/* Tab Panels */}
       {activeTab === 'photos' && (
         <div className="space-y-6">
-          <UploadDropzone
-            clientId={client.id}
-            onUploadComplete={fetchClientData}
-          />
-
-          <div className="bg-white rounded-2xl border border-stone-200/80 p-6 shadow-sm">
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-stone-100">
-              <h3 className="font-semibold text-stone-900 text-sm">
-                Gallery Photos ({photos.length})
-              </h3>
-              <span className="text-xs text-stone-400">
-                Click any photo to preview in lightbox
-              </span>
+          {/* Default Garage S3 Direct Upload Banner */}
+          <div className="bg-gradient-to-r from-stone-900 via-stone-850 to-stone-900 rounded-2xl p-6 text-white border border-stone-800 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-amber-500/10 rounded-2xl text-amber-400 border border-amber-500/20 flex-shrink-0">
+                <CloudUpload className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-semibold uppercase tracking-wider">
+                    Default Storage: Garage S3
+                  </span>
+                  <span className="text-xs text-stone-400">• Multi-disk SSD</span>
+                </div>
+                <h3 className="text-base font-bold text-stone-100">
+                  {selectedAlbum ? `Direct Upload to: ${selectedAlbum.title}` : 'Direct High-Speed Cloud Upload'}
+                </h3>
+                <p className="text-xs text-stone-400 mt-0.5 max-w-xl">
+                  Files upload directly from your browser to the Ubuntu storage server via short-lived signed requests. Large 10–30 GB collections, 4K videos, and ZIP archives never pass through the website backend.
+                </p>
+              </div>
             </div>
 
-            <PhotoGrid
-              photos={photos}
-              onPhotoClick={(index) => setLightboxIndex(index)}
-              onToggleHide={handleToggleHide}
-              onDeletePhoto={handleDeletePhoto}
-            />
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={handleOpenDefaultUpload}
+                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20 transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <CloudUpload className="w-4 h-4" />
+                <span>Upload Photos & Videos</span>
+              </button>
+            </div>
           </div>
+
+          {/* Garage S3 Media Grid (Default Storage Items) */}
+          {albumMedia.filter((m) => !m.is_archive).length > 0 && (
+            <div className="bg-white rounded-2xl border border-stone-200/80 p-6 shadow-sm">
+              <div className="flex items-center justify-between pb-4 mb-4 border-b border-stone-100">
+                <div>
+                  <h3 className="font-semibold text-stone-900 text-sm flex items-center gap-2">
+                    <CloudUpload className="w-4 h-4 text-amber-600" />
+                    <span>Garage S3 Media Items ({albumMedia.filter((m) => !m.is_archive).length})</span>
+                  </h3>
+                  <p className="text-xs text-stone-400 mt-0.5">
+                    Original files stored securely on Ubuntu Garage S3 object storage
+                  </p>
+                </div>
+                <button
+                  onClick={handleOpenDefaultUpload}
+                  className="px-3.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add More</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {albumMedia.filter((m) => !m.is_archive).map((item) => (
+                  <div
+                    key={item.id}
+                    className="group relative aspect-square bg-stone-100 rounded-xl overflow-hidden border border-stone-200 shadow-xs"
+                  >
+                    {item.preview_url ? (
+                      <img
+                        src={item.preview_url}
+                        alt={item.original_filename}
+                        loading="lazy"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center p-2 text-stone-400">
+                        {item.media_type === 'video' ? (
+                          <Film className="w-6 h-6 text-amber-600 mb-1" />
+                        ) : (
+                          <FileText className="w-6 h-6 mb-1" />
+                        )}
+                        <span className="text-[10px] text-stone-600 truncate max-w-full px-1">
+                          {item.original_filename}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Hover controls */}
+                    <div className="absolute inset-0 bg-stone-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-2 text-white">
+                      <span className="text-[10px] font-mono truncate mr-1">
+                        {formatBytes(item.byte_size)}
+                      </span>
+                      <button
+                        onClick={() => handleDeleteMedia(item.id)}
+                        disabled={deletingMediaId === item.id}
+                        className="p-1 rounded bg-stone-800/80 hover:bg-rose-600 text-stone-200 hover:text-white transition-colors"
+                        title="Delete media from Garage S3"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Legacy Showcase Photos (if any exist) */}
+          {photos.length > 0 && (
+            <div className="bg-white rounded-2xl border border-stone-200/80 p-6 shadow-sm">
+              <div className="flex items-center justify-between pb-4 mb-4 border-b border-stone-100">
+                <h3 className="font-semibold text-stone-900 text-sm">
+                  Showcase / Portfolio Photos ({photos.length})
+                </h3>
+                <span className="text-xs text-stone-400">
+                  Click any photo to preview in lightbox
+                </span>
+              </div>
+
+              <PhotoGrid
+                photos={photos}
+                onPhotoClick={(index) => setLightboxIndex(index)}
+                onToggleHide={handleToggleHide}
+                onDeletePhoto={handleDeletePhoto}
+              />
+            </div>
+          )}
+
+          {/* Empty state when neither S3 nor legacy photos exist */}
+          {albumMedia.filter((m) => !m.is_archive).length === 0 && photos.length === 0 && (
+            <div className="py-16 text-center bg-white rounded-2xl border border-dashed border-stone-200 p-8">
+              <CloudUpload className="w-12 h-12 text-stone-300 mx-auto mb-3" />
+              <h4 className="text-sm font-semibold text-stone-700">No Photos or Videos Uploaded Yet</h4>
+              <p className="text-xs text-stone-400 max-w-md mx-auto mt-1 mb-5">
+                Upload your client's wedding photos, 4K highlight videos, or prepared ZIP archives directly to your private Garage S3 storage server.
+              </p>
+              <button
+                onClick={handleOpenDefaultUpload}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs rounded-xl shadow-md transition-colors cursor-pointer"
+              >
+                <CloudUpload className="w-4 h-4" />
+                <span>Upload First Collection</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 

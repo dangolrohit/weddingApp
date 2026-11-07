@@ -536,3 +536,4 @@ export const AlbumView = () => {
     </div>
   );
 };
+

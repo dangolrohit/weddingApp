@@ -178,3 +178,4 @@ To restore the storage cluster onto a new server:
 | **SignatureDoesNotMatch** | Presigned URL generated with wrong hostname or clock skew | Ensure server system clock is synced with NTP (`timedatectl`). Check that `GARAGE_S3_PUBLIC_URL` matches the exact browser URL (`https://cloud.abcd.com`). |
 | **Storage Temporarily Unavailable (503)** | Garage container stopped or proxy port misconfigured | Verify container status: `docker compose ps`. Test local S3 endpoint: `curl -I http://127.0.0.1:3900`. |
 | **Disk fill warning** | Abandoned multipart parts consuming space | Run `python backend/manage.py cleanup_abandoned_uploads --hours 1`. |
+

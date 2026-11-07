@@ -616,3 +616,4 @@ class ClientPreviewMediaView(APIView):
         except Exception as e:
             logger.error(f"Error generating preview URL for media {media.id}: {e}")
             return Response({'error': 'Storage temporarily unavailable.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+

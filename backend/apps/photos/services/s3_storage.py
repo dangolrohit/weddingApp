@@ -211,3 +211,4 @@ def delete_object_server(key: str) -> bool:
     except Exception as e:
         logger.warning(f"Failed to delete object {key} from S3: {e}")
         return False
+

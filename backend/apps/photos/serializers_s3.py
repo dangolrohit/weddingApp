@@ -85,3 +85,4 @@ class S3SignSerializer(serializers.Serializer):
     uploadId = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     partNumber = serializers.IntegerField(required=False, allow_null=True)
     contentType = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
