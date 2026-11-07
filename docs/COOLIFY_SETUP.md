@@ -188,3 +188,4 @@ flowchart TD
     Traefik ==="Zero-Buffer Stream"===> MinIO
     MinIO ==="Direct High-Speed I/O"===> SSD
 ```
+
