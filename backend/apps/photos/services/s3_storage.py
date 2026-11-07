@@ -67,6 +67,35 @@ def get_s3_client(public: bool = False):
     )
 
 
+def ensure_bucket_exists() -> bool:
+    """
+    Ensures that the primary S3 bucket exists, creating it if necessary.
+    Safe to call multiple times (idempotent).
+    """
+    if getattr(settings, 'GARAGE_S3_USE_LOCAL_MOCK', False):
+        return True
+
+    client = get_s3_client(public=False)
+    bucket = settings.GARAGE_S3_BUCKET_NAME
+    try:
+        client.head_bucket(Bucket=bucket)
+        return True
+    except ClientError as e:
+        error_code = e.response.get('Error', {}).get('Code', '')
+        if error_code in ('404', 'NoSuchBucket', 'NotFound'):
+            try:
+                client.create_bucket(Bucket=bucket)
+                logger.info(f"Auto-created S3 storage bucket: {bucket}")
+                return True
+            except Exception as create_err:
+                logger.warning(f"Could not auto-create bucket {bucket}: {create_err}")
+                return False
+        return False
+    except Exception as e:
+        logger.warning(f"S3 bucket verification check skipped: {e}")
+        return False
+
+
 def generate_presigned_upload_url(key: str, content_type: str = None, expires_in: int = 3600) -> str:
     """Generates a presigned PUT URL for single-request browser uploads."""
     client = get_s3_client(public=True)

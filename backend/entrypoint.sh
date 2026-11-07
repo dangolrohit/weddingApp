@@ -31,6 +31,19 @@ if [ "$1" = "gunicorn" ]; then
 
     echo "Initializing default admin account if not already created..."
     python manage.py initadmin
+
+    echo "Ensuring S3 storage bucket exists..."
+    python -c "
+import sys, os
+sys.path.insert(0, '/app')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', os.environ.get('DJANGO_SETTINGS_MODULE', 'config.settings.prod'))
+import django; django.setup()
+try:
+    from apps.photos.services.s3_storage import ensure_bucket_exists
+    ensure_bucket_exists()
+except Exception as e:
+    print('S3 bucket check skipped:', e)
+"
 fi
 
 exec "$@"

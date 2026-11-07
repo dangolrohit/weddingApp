@@ -29,7 +29,7 @@ services:
 
   # Coolify S3 Object Storage (MinIO) - Handles 4-5 TB SSD storage directly
   minio:
-    image: minio/minio:RELEASE.2024-06-29T01-20-47Z
+    image: pgsty/minio:latest
     container_name: wedding_minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
@@ -44,8 +44,8 @@ services:
       - "${MINIO_PORT:-9000}:9000"
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
       timeout: 5s
       retries: 5
     labels:
@@ -60,7 +60,7 @@ services:
 
   # Automatic 1-shot MinIO provisioner: creates default bucket & sets CORS
   minio_setup:
-    image: minio/mc:RELEASE.2024-06-29T01-30-22Z
+    image: pgsty/mc:latest
     container_name: wedding_minio_setup
     depends_on:
       minio:
