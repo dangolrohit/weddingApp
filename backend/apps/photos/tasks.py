@@ -187,3 +187,11 @@ def update_client_storage_bytes(client):
     client.storage_bytes = photos_sum + variants_sum
     client.photo_count = client.photos.count()
     client.save(update_fields=['storage_bytes', 'photo_count'])
+
+
+@shared_task
+def cleanup_abandoned_uploads_task(hours: int = 24):
+    """Celery scheduled task to clean up expired/abandoned Garage S3 upload sessions."""
+    from django.core.management import call_command
+    call_command('cleanup_abandoned_uploads', hours=hours)
+

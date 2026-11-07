@@ -1,0 +1,38 @@
+# deploy/storage/compose.yaml
+# Lightweight private wedding photo/video object storage using Garage S3
+# Designed for Ubuntu single-node setup with multiple persistent SSD data directories.
+
+services:
+  garage:
+    image: dxflrs/garage:v1.0.1
+    container_name: wedding_garage_s3
+    restart: unless-stopped
+    network_mode: "host" # Recommended for high network throughput and direct localhost binding
+    environment:
+      - RUST_LOG=garage=info
+    volumes:
+      # Static configuration file
+      - ./garage.toml:/etc/garage.toml:ro
+
+      # Garage Metadata on reliable internal drive (e.g. NVMe / system drive)
+      # DO NOT place metadata on slow HDDs or network shares
+      - /var/lib/garage/meta:/var/lib/garage/meta
+
+      # Persistent SSD 1 Data Directory (mounted by UUID in /etc/fstab)
+      - /mnt/ssd1/garage-data:/var/lib/garage/data/disk1
+
+      # Persistent SSD 2 Data Directory (mounted by UUID in /etc/fstab)
+      - /mnt/ssd2/garage-data:/var/lib/garage/data/disk2
+
+    # Port allocation reference (network_mode: host binds these directly):
+    # 3900 -> S3 API (proxied publicly via Nginx / Coolify to https://cloud.abcd.com)
+    # 3901 -> RPC / cluster sync (bound to 127.0.0.1; keep private)
+    # 3902 -> S3 Web (optional web static hosting; keep private)
+    # 3903 -> Admin API (bound to 127.0.0.1:3903; strictly private CLI administration)
+
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

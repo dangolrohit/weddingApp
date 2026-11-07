@@ -12,6 +12,8 @@ import { ShowcasePicker } from '../../components/ShowcasePicker';
 import { SendLinkModal } from '../../components/SendLinkModal';
 import { deliveryApi } from '../../api/delivery';
 import { paymentsApi } from '../../api/payments';
+import { albumsApi } from '../../api/albums';
+import { S3UploadModal } from '../../components/S3UploadModal';
 import { 
   ArrowLeft, 
   Calendar, 
@@ -34,7 +36,19 @@ import {
   DollarSign,
   Plus,
   Banknote,
-  Smartphone
+  Smartphone,
+  CloudUpload,
+  FolderPlus,
+  Share2,
+  Copy,
+  Check,
+  ExternalLink,
+  Archive,
+  Film,
+  FileText,
+  CheckCircle2,
+  ChevronRight,
+  DownloadCloud
 } from 'lucide-react';
 
 export const ClientDetail = () => {
@@ -89,6 +103,25 @@ export const ClientDetail = () => {
   const [payNotes, setPayNotes] = useState('');
   const [paySaving, setPaySaving] = useState(false);
   const [payError, setPayError] = useState('');
+
+  // Albums & Cloud Storage (Garage S3) State
+  const [albums, setAlbums] = useState([]);
+  const [loadingAlbums, setLoadingAlbums] = useState(false);
+  const [selectedAlbum, setSelectedAlbum] = useState(null);
+  const [albumMedia, setAlbumMedia] = useState([]);
+  const [loadingAlbumMedia, setLoadingAlbumMedia] = useState(false);
+  const [createAlbumOpen, setCreateAlbumOpen] = useState(false);
+  const [newAlbumTitle, setNewAlbumTitle] = useState('');
+  const [newAlbumDesc, setNewAlbumDesc] = useState('');
+  const [creatingAlbum, setCreatingAlbum] = useState(false);
+  const [createAlbumError, setCreateAlbumError] = useState('');
+  const [s3UploadOpen, setS3UploadOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [currentShareData, setCurrentShareData] = useState(null);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [generatingShare, setGeneratingShare] = useState(false);
+  const [deletingAlbumId, setDeletingAlbumId] = useState(null);
+  const [deletingMediaId, setDeletingMediaId] = useState(null);
 
   const fetchClientData = useCallback(async () => {
     try {
@@ -146,6 +179,143 @@ export const ClientDetail = () => {
       fetchPayments();
     }
   }, [activeTab, fetchPayments]);
+
+  const fetchAlbums = useCallback(async () => {
+    setLoadingAlbums(true);
+    try {
+      const data = await albumsApi.listClientAlbums(id);
+      setAlbums(data || []);
+      if (data && data.length > 0) {
+        setSelectedAlbum((prev) => {
+          if (!prev) return data[0];
+          const found = data.find((a) => a.id === prev.id);
+          return found || data[0];
+        });
+      } else {
+        setSelectedAlbum(null);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoadingAlbums(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'albums') {
+      fetchAlbums();
+    }
+  }, [activeTab, fetchAlbums]);
+
+  const fetchAlbumMedia = useCallback(async (albumId) => {
+    if (!albumId) return;
+    setLoadingAlbumMedia(true);
+    try {
+      const res = await albumsApi.listAlbumMedia(albumId);
+      setAlbumMedia(res.results || res || []);
+    } catch {
+      // ignore
+    } finally {
+      setLoadingAlbumMedia(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedAlbum?.id) {
+      fetchAlbumMedia(selectedAlbum.id);
+    }
+  }, [selectedAlbum?.id, fetchAlbumMedia]);
+
+  const handleCreateAlbum = async (e) => {
+    e.preventDefault();
+    if (!newAlbumTitle.trim()) {
+      setCreateAlbumError('Please enter an album title.');
+      return;
+    }
+    setCreatingAlbum(true);
+    setCreateAlbumError('');
+    try {
+      const newAlb = await albumsApi.createClientAlbum(id, {
+        title: newAlbumTitle.trim(),
+        description: newAlbumDesc.trim()
+      });
+      setCreateAlbumOpen(false);
+      setNewAlbumTitle('');
+      setNewAlbumDesc('');
+      await fetchAlbums();
+      setSelectedAlbum(newAlb);
+    } catch (err) {
+      setCreateAlbumError(err.response?.data?.title?.[0] || 'Failed to create album.');
+    } finally {
+      setCreatingAlbum(false);
+    }
+  };
+
+  const handleTogglePublish = async (album) => {
+    const nextStatus = album.status === 'published' ? 'draft' : 'published';
+    try {
+      const updated = await albumsApi.updateAlbum(album.id, { status: nextStatus });
+      setSelectedAlbum(updated);
+      fetchAlbums();
+    } catch {
+      alert('Failed to update album status.');
+    }
+  };
+
+  const handleDeleteAlbum = async (albumId) => {
+    if (!window.confirm('Are you sure you want to delete this album and its stored files from Garage S3?')) return;
+    setDeletingAlbumId(albumId);
+    try {
+      await albumsApi.deleteAlbum(albumId);
+      await fetchAlbums();
+      fetchClientData();
+    } catch {
+      alert('Failed to delete album.');
+    } finally {
+      setDeletingAlbumId(null);
+    }
+  };
+
+  const handleGenerateShare = async (albumId) => {
+    setGeneratingShare(true);
+    setShareCopied(false);
+    try {
+      const data = await albumsApi.generateShareLink(albumId, 30);
+      setCurrentShareData(data);
+      setShareModalOpen(true);
+      fetchAlbums();
+    } catch {
+      alert('Failed to generate share link.');
+    } finally {
+      setGeneratingShare(false);
+    }
+  };
+
+  const handleRevokeShare = async (albumId) => {
+    if (!window.confirm('Are you sure you want to revoke this share link? Clients will immediately lose access.')) return;
+    try {
+      await albumsApi.revokeShareLink(albumId);
+      alert('Share link revoked.');
+      fetchAlbums();
+    } catch {
+      alert('Failed to revoke share link.');
+    }
+  };
+
+  const handleDeleteMedia = async (mediaId) => {
+    if (!window.confirm('Delete this file from Garage S3 storage?')) return;
+    setDeletingMediaId(mediaId);
+    try {
+      await albumsApi.deleteAlbumMedia(selectedAlbum.id, mediaId);
+      fetchAlbumMedia(selectedAlbum.id);
+      fetchAlbums();
+      fetchClientData();
+    } catch {
+      alert('Failed to delete file.');
+    } finally {
+      setDeletingMediaId(null);
+    }
+  };
 
   const handleOpenRecordPay = () => {
     setPayAmount('');
@@ -503,6 +673,17 @@ export const ClientDetail = () => {
           <CreditCard className="w-3.5 h-3.5" />
           <span>Payments & Billing</span>
         </button>
+        <button
+          onClick={() => setActiveTab('albums')}
+          className={`pb-3 px-4 text-xs font-semibold tracking-wider uppercase border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
+            activeTab === 'albums'
+              ? 'border-amber-600 text-amber-900'
+              : 'border-transparent text-stone-400 hover:text-stone-700'
+          }`}
+        >
+          <CloudUpload className="w-3.5 h-3.5" />
+          <span>Cloud Albums & S3 ({albums.length})</span>
+        </button>
       </div>
 
       {/* Tab Panels */}
@@ -768,6 +949,343 @@ export const ClientDetail = () => {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Albums & Cloud Storage (Garage S3) Tab Panel */}
+      {activeTab === 'albums' && (
+        <div className="space-y-6">
+          {/* Header Action Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-stone-200/80 shadow-sm">
+            <div>
+              <div className="flex items-center gap-2 text-amber-600 text-xs font-semibold tracking-wider uppercase mb-1">
+                <CloudUpload className="w-4 h-4" />
+                <span>Garage S3 Direct Storage</span>
+              </div>
+              <h3 className="text-lg font-bold text-stone-900">
+                Wedding Albums & High-Capacity Storage
+              </h3>
+              <p className="text-xs text-stone-500 mt-0.5">
+                Upload 10–30 GB high-resolution collections directly from browser to Ubuntu storage server.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setNewAlbumTitle('');
+                setNewAlbumDesc('');
+                setCreateAlbumError('');
+                setCreateAlbumOpen(true);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors cursor-pointer"
+            >
+              <FolderPlus className="w-4 h-4" />
+              <span>Create New Album</span>
+            </button>
+          </div>
+
+          {loadingAlbums ? (
+            <div className="py-20 flex flex-col items-center justify-center gap-3 text-stone-400 bg-white rounded-2xl border border-stone-200/80">
+              <RefreshCw className="w-6 h-6 animate-spin text-amber-500" />
+              <p className="text-xs font-medium">Loading albums...</p>
+            </div>
+          ) : albums.length === 0 ? (
+            <div className="py-20 text-center bg-white rounded-2xl border border-dashed border-stone-200">
+              <CloudUpload className="w-12 h-12 text-stone-300 mx-auto mb-3" />
+              <h4 className="text-sm font-semibold text-stone-700">No Wedding Albums Created</h4>
+              <p className="text-xs text-stone-400 max-w-sm mx-auto mt-1 mb-5">
+                Create an album to start uploading 10–30 GB high-res photo/video collections directly to Garage S3.
+              </p>
+              <button
+                onClick={() => setCreateAlbumOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create First Album</span>
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column: Albums List */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-500 px-1">
+                  Client Albums ({albums.length})
+                </h4>
+                {albums.map((alb) => {
+                  const isSelected = selectedAlbum?.id === alb.id;
+                  return (
+                    <div
+                      key={alb.id}
+                      onClick={() => setSelectedAlbum(alb)}
+                      className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-amber-50/60 border-amber-300 shadow-sm ring-1 ring-amber-300'
+                          : 'bg-white border-stone-200/80 hover:border-stone-300 shadow-sm'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h5 className="font-semibold text-sm text-stone-900 truncate">
+                          {alb.title}
+                        </h5>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${
+                            alb.status === 'published'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-stone-100 text-stone-600'
+                          }`}
+                        >
+                          {alb.status}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-3 text-xs text-stone-500">
+                        <span>{alb.ready_media_count} files</span>
+                        <span>•</span>
+                        <span>{formatBytes(alb.total_bytes)}</span>
+                        {alb.archive_count > 0 && (
+                          <>
+                            <span>•</span>
+                            <span className="text-amber-700 font-medium">
+                              {alb.archive_count} ZIP part{alb.archive_count > 1 ? 's' : ''}
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      {alb.is_share_active && (
+                        <div className="mt-2.5 pt-2 border-t border-stone-100 flex items-center gap-1.5 text-[11px] text-emerald-600 font-medium">
+                          <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>Share link active</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Right Column: Selected Album Details & Content */}
+              {selectedAlbum && (
+                <div className="lg:col-span-2 space-y-6">
+                  {/* Selected Album Control Header */}
+                  <div className="bg-white rounded-2xl p-6 border border-stone-200/80 shadow-sm">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-100">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-lg font-bold text-stone-900">
+                            {selectedAlbum.title}
+                          </h4>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${
+                              selectedAlbum.status === 'published'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-stone-100 text-stone-600'
+                            }`}
+                          >
+                            {selectedAlbum.status}
+                          </span>
+                        </div>
+                        {selectedAlbum.description && (
+                          <p className="text-xs text-stone-500 mt-1">
+                            {selectedAlbum.description}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Publish/Draft Toggle */}
+                        <button
+                          onClick={() => handleTogglePublish(selectedAlbum)}
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-xl border transition-colors cursor-pointer ${
+                            selectedAlbum.status === 'published'
+                              ? 'bg-stone-100 text-stone-700 hover:bg-stone-200 border-stone-300'
+                              : 'bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-600'
+                          }`}
+                        >
+                          {selectedAlbum.status === 'published' ? 'Switch to Draft' : 'Publish Album'}
+                        </button>
+
+                        {/* Direct S3 Upload Button */}
+                        <button
+                          onClick={() => setS3UploadOpen(true)}
+                          className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <CloudUpload className="w-3.5 h-3.5" />
+                          <span>Direct S3 Upload</span>
+                        </button>
+
+                        {/* Share Link Button */}
+                        <button
+                          onClick={() => handleGenerateShare(selectedAlbum.id)}
+                          disabled={generatingShare}
+                          className="px-3.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold rounded-xl border border-stone-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                          <span>{selectedAlbum.is_share_active ? 'Share Link' : 'Generate Link'}</span>
+                        </button>
+
+                        {/* Delete Album */}
+                        <button
+                          onClick={() => handleDeleteAlbum(selectedAlbum.id)}
+                          disabled={deletingAlbumId === selectedAlbum.id}
+                          className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                          title="Delete album and all S3 objects"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Stats strip */}
+                    <div className="grid grid-cols-3 gap-4 pt-4 text-center">
+                      <div className="bg-stone-50 rounded-xl p-3">
+                        <span className="text-[10px] font-semibold uppercase text-stone-500 tracking-wider">Total Media</span>
+                        <p className="text-base font-bold text-stone-900 mt-0.5">{selectedAlbum.ready_media_count}</p>
+                      </div>
+                      <div className="bg-stone-50 rounded-xl p-3">
+                        <span className="text-[10px] font-semibold uppercase text-stone-500 tracking-wider">Storage Used</span>
+                        <p className="text-base font-bold text-stone-900 mt-0.5 font-mono">{formatBytes(selectedAlbum.total_bytes)}</p>
+                      </div>
+                      <div className="bg-stone-50 rounded-xl p-3">
+                        <span className="text-[10px] font-semibold uppercase text-stone-500 tracking-wider">Prepared ZIPs</span>
+                        <p className="text-base font-bold text-stone-900 mt-0.5">{selectedAlbum.archive_count}</p>
+                      </div>
+                    </div>
+
+                    {/* Active Share Link Banner if published */}
+                    {selectedAlbum.is_share_active && (
+                      <div className="mt-4 p-3 bg-emerald-50/80 border border-emerald-200/60 rounded-xl flex items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-2 text-emerald-800">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                          <span>Client gallery is live and accessible via private token link.</span>
+                        </div>
+                        <button
+                          onClick={() => handleRevokeShare(selectedAlbum.id)}
+                          className="text-xs text-rose-600 hover:text-rose-800 font-semibold underline cursor-pointer"
+                        >
+                          Revoke Access
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Prepared ZIP Archives (Download All Parts) Subsection */}
+                  {albumMedia.filter((m) => m.is_archive).length > 0 && (
+                    <div className="bg-white rounded-2xl p-6 border border-stone-200/80 shadow-sm space-y-4">
+                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-700">
+                        <Archive className="w-4 h-4" />
+                        <span>Prepared ZIP Archives ("Download All" Parts)</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {albumMedia.filter((m) => m.is_archive).map((arch) => (
+                          <div
+                            key={arch.id}
+                            className="p-3.5 bg-stone-50 rounded-xl border border-stone-200 flex items-center justify-between gap-3"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <Archive className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-stone-800 truncate">
+                                  {arch.original_filename}
+                                </p>
+                                <p className="text-[10px] text-stone-500 font-mono">
+                                  {formatBytes(arch.byte_size)}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteMedia(arch.id)}
+                              disabled={deletingMediaId === arch.id}
+                              className="p-1.5 text-stone-400 hover:text-rose-600 transition-colors"
+                              title="Delete archive from S3"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Media Items Gallery Subsection */}
+                  <div className="bg-white rounded-2xl p-6 border border-stone-200/80 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+                      <h4 className="text-sm font-bold text-stone-900">
+                        Album Media Items ({albumMedia.filter((m) => !m.is_archive).length})
+                      </h4>
+                      <button
+                        onClick={() => fetchAlbumMedia(selectedAlbum.id)}
+                        className="p-1 text-stone-400 hover:text-stone-700 transition-colors"
+                        title="Refresh media"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {loadingAlbumMedia ? (
+                      <div className="py-12 text-center text-stone-400">
+                        <RefreshCw className="w-5 h-5 animate-spin mx-auto text-amber-500 mb-2" />
+                        <p className="text-xs">Loading media items...</p>
+                      </div>
+                    ) : albumMedia.filter((m) => !m.is_archive).length === 0 ? (
+                      <div className="py-12 text-center border border-dashed border-stone-200 rounded-xl text-stone-400">
+                        <Camera className="w-8 h-8 mx-auto mb-2 text-stone-300" />
+                        <p className="text-xs">No media items uploaded to this album yet.</p>
+                        <button
+                          onClick={() => setS3UploadOpen(true)}
+                          className="mt-3 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors cursor-pointer"
+                        >
+                          Start S3 Upload
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        {albumMedia.filter((m) => !m.is_archive).map((item) => (
+                          <div
+                            key={item.id}
+                            className="group relative aspect-square bg-stone-100 rounded-xl overflow-hidden border border-stone-200 shadow-xs"
+                          >
+                            {item.preview_url ? (
+                              <img
+                                src={item.preview_url}
+                                alt={item.original_filename}
+                                loading="lazy"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center p-2 text-stone-400">
+                                {item.media_type === 'video' ? (
+                                  <Film className="w-6 h-6 text-amber-600 mb-1" />
+                                ) : (
+                                  <FileText className="w-6 h-6 mb-1" />
+                                )}
+                                <span className="text-[10px] text-stone-600 truncate max-w-full px-1">
+                                  {item.original_filename}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Hover bar */}
+                            <div className="absolute inset-0 bg-stone-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-2 text-white">
+                              <span className="text-[10px] font-mono truncate mr-1">
+                                {formatBytes(item.byte_size)}
+                              </span>
+                              <button
+                                onClick={() => handleDeleteMedia(item.id)}
+                                disabled={deletingMediaId === item.id}
+                                className="p-1 rounded bg-stone-800/80 hover:bg-rose-600 text-stone-200 hover:text-white transition-colors"
+                                title="Delete media from Garage S3"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -1100,6 +1618,146 @@ export const ClientDetail = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Create Album Modal */}
+      <Modal
+        isOpen={createAlbumOpen}
+        onClose={() => setCreateAlbumOpen(false)}
+        title="Create Wedding Album"
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleCreateAlbum} className="space-y-4">
+          {createAlbumError && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span>{createAlbumError}</span>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1.5">
+              Album Title *
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. Wedding Day & Reception"
+              value={newAlbumTitle}
+              onChange={(e) => setNewAlbumTitle(e.target.value)}
+              className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1.5">
+              Description / Notes (Optional)
+            </label>
+            <textarea
+              rows={3}
+              placeholder="Private notes or client greeting message..."
+              value={newAlbumDesc}
+              onChange={(e) => setNewAlbumDesc(e.target.value)}
+              className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 resize-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-stone-100">
+            <button
+              type="button"
+              onClick={() => setCreateAlbumOpen(false)}
+              className="px-4 py-2 text-xs font-medium text-stone-600 hover:text-stone-900"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={creatingAlbum}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-xl text-xs transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              {creatingAlbum ? 'Creating...' : 'Create Album'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Share Link Modal */}
+      <Modal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        title="Album Share Link Generated"
+        maxWidth="max-w-lg"
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-stone-600 leading-relaxed">
+            This private link contains a high-entropy share token. Anyone with this link can view previews and download high-resolution photos and ZIP archives directly from Garage S3.
+          </p>
+
+          <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 flex items-center justify-between gap-2">
+            <code className="text-xs text-amber-700 font-mono truncate select-all">
+              {window.location.origin}{currentShareData?.share_url}
+            </code>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}${currentShareData?.share_url}`);
+                setShareCopied(true);
+                setTimeout(() => setShareCopied(false), 3000);
+              }}
+              className="px-3 py-1.5 bg-white border border-stone-200 hover:bg-stone-100 text-stone-700 text-xs font-medium rounded-lg flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
+            >
+              {shareCopied ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="text-emerald-700">Copied</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between text-[11px] text-stone-500 pt-2 border-t border-stone-100">
+            <span>Link active for 30 days</span>
+            {currentShareData?.share_url && (
+              <a
+                href={currentShareData.share_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-amber-600 hover:text-amber-800 font-medium flex items-center gap-1"
+              >
+                <span>Open Gallery in New Tab</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <button
+              onClick={() => setShareModalOpen(false)}
+              className="px-4 py-2 bg-stone-900 text-white rounded-xl text-xs font-medium hover:bg-stone-800 transition-colors cursor-pointer"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* S3 Direct Browser Upload Modal (Uppy + Garage) */}
+      {selectedAlbum && (
+        <S3UploadModal
+          isOpen={s3UploadOpen}
+          onClose={() => setS3UploadOpen(false)}
+          albumId={selectedAlbum.id}
+          albumTitle={selectedAlbum.title}
+          onUploadComplete={() => {
+            fetchAlbumMedia(selectedAlbum.id);
+            fetchAlbums();
+            fetchClientData();
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -166,6 +166,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.storage_stats.tasks.recalculate_storage_task',
         'schedule': crontab(hour=3, minute=0), # Run daily at 03:00 AM UTC
     },
+    'nightly-upload-session-cleanup': {
+        'task': 'apps.photos.tasks.cleanup_abandoned_uploads_task',
+        'schedule': crontab(hour=4, minute=0), # Run daily at 04:00 AM UTC
+    },
 }
 
 # Email Backend Settings
@@ -185,4 +189,12 @@ else:
 # Turnstile Settings
 TURNSTILE_SITE_KEY = os.environ.get('TURNSTILE_SITE_KEY', '')
 TURNSTILE_SECRET_KEY = os.environ.get('TURNSTILE_SECRET_KEY', '')
+
+# Garage S3 Private Object Storage Settings
+GARAGE_S3_ENDPOINT_URL = os.environ.get('GARAGE_S3_ENDPOINT_URL', 'http://127.0.0.1:3900')
+GARAGE_S3_PUBLIC_URL = os.environ.get('GARAGE_S3_PUBLIC_URL', os.environ.get('GARAGE_S3_ENDPOINT_URL', 'http://127.0.0.1:3900'))
+GARAGE_S3_ACCESS_KEY_ID = os.environ.get('GARAGE_S3_ACCESS_KEY_ID', 'garage_dev_key')
+GARAGE_S3_SECRET_ACCESS_KEY = os.environ.get('GARAGE_S3_SECRET_ACCESS_KEY', 'garage_dev_secret')
+GARAGE_S3_REGION = os.environ.get('GARAGE_S3_REGION', 'garage')
+GARAGE_S3_BUCKET_NAME = os.environ.get('GARAGE_S3_BUCKET_NAME', 'wedding-storage')
 

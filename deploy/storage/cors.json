@@ -1,0 +1,32 @@
+{
+  "CORSRules": [
+    {
+      "AllowedOrigins": [
+        "https://cloud.abcd.com",
+        "https://weddingstudio.com",
+        "http://localhost:5173",
+        "http://localhost:8000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:8000"
+      ],
+      "AllowedMethods": [
+        "GET",
+        "PUT",
+        "POST",
+        "DELETE",
+        "HEAD"
+      ],
+      "AllowedHeaders": [
+        "*"
+      ],
+      "ExposeHeaders": [
+        "ETag",
+        "Location",
+        "Content-Length",
+        "Content-Type",
+        "x-amz-request-id"
+      ],
+      "MaxAgeSeconds": 3600
+    }
+  ]
+}

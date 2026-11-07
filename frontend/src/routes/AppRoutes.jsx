@@ -15,6 +15,7 @@ import { Storage } from '../pages/admin/Storage';
 import { Home } from '../pages/public/Home';
 import { GetMyImage } from '../pages/delivery/GetMyImage';
 import { Download } from '../pages/delivery/Download';
+import { AlbumView } from '../pages/client/AlbumView';
 
 export const AppRoutes = () => {
   return (
@@ -25,6 +26,9 @@ export const AppRoutes = () => {
         <Route path="get-my-image" element={<GetMyImage />} />
         <Route path="d/:token" element={<Download />} />
       </Route>
+
+      {/* Private Client Wedding Album Share Link */}
+      <Route path="/album/:shareToken" element={<AlbumView />} />
 
       {/* Admin Auth */}
       <Route path="/admin/login" element={<Login />} />

@@ -1,0 +1,44 @@
+# deploy/storage/garage.toml.example
+# Garage configuration for lightweight private wedding photo/video storage
+# Copy this file to garage.toml and customize secrets, domain, and paths.
+
+# Node Metadata Directory: Store on reliable internal disk (NVMe / fast SSD)
+# Metadata contains chunk indices, bucket lists, and layout info (LMDB/SQLite).
+metadata_dir = "/var/lib/garage/meta"
+
+# Multi-SSD Data Directories: Native multi-drive support pooling ~4 TB
+# Each path corresponds to a bind-mount of an SSD persistently mounted by UUID in /etc/fstab.
+data_dir = [
+  { path = "/var/lib/garage/data/disk1", capacity = "2T" },
+  { path = "/var/lib/garage/data/disk2", capacity = "2T" }
+]
+
+# Replication factor for single-node deployment
+# Single-node configuration has no independent node redundancy.
+# Data is striped across disks for capacity pooling; it is NOT an automated backup.
+replication_mode = "none"
+
+# Internal RPC Secret for node communication (generate with `openssl rand -hex 32`)
+rpc_secret = "CHANGE_ME_GENERATE_WITH_OPENSSL_RAND_HEX_32"
+
+# Cluster communication port (internal only)
+rpc_bind_addr = "127.0.0.1:3901"
+rpc_public_addr = "127.0.0.1:3901"
+
+[s3_api]
+# S3 API listen address (proxied publicly through Nginx/Coolify reverse proxy)
+api_bind_addr = "0.0.0.0:3900"
+# Public HTTPS endpoint used by browsers and presigned URLs
+s3_endpoint = "https://cloud.abcd.com"
+# Root domain for virtual-host requests (path-style requests always supported)
+root_domain = ".s3.garage"
+
+[s3_web]
+bind_addr = "127.0.0.1:3902"
+root_domain = ".web.garage"
+
+[admin]
+# Administrative API: Keep bound strictly to localhost (private)
+api_bind_addr = "127.0.0.1:3903"
+# Admin token for CLI administration (generate with `openssl rand -hex 16`)
+admin_token = "CHANGE_ME_ADMIN_TOKEN_HEX_16"
