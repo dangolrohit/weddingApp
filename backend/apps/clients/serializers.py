@@ -156,5 +156,16 @@ class ClientCreateSerializer(serializers.ModelSerializer):
 
         # Attach raw_passkey to instance so it is returned once in response
         client.raw_passkey = raw_passkey
+
+        # Auto-create primary wedding album for Garage S3
+        from apps.photos.models import Album
+        Album.objects.create(
+            client=client,
+            title=f"{client.groom_name} & {client.bride_name} Wedding Album",
+            description=f"Primary wedding collection for {client.groom_name} & {client.bride_name}.",
+            status='draft',
+            created_by=user if getattr(user, 'is_authenticated', False) else None
+        )
+
         return client
 

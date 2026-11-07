@@ -118,6 +118,18 @@ class GetMyImageVerifyView(APIView):
 
         session_token = sign_client_session(str(client.id))
 
+        # Published Garage S3 albums for this client
+        published_albums = []
+        for alb in client.albums.filter(status='published'):
+            published_albums.append({
+                'id': str(alb.id),
+                'title': alb.title,
+                'description': alb.description,
+                'media_count': alb.media_items.filter(upload_status='ready', is_archive=False).count(),
+                'archive_count': alb.media_items.filter(upload_status='ready', is_archive=True).count(),
+                'share_token': alb.share_token_hash,
+            })
+
         response_data = {
             'session_token': session_token,
             'client': {
@@ -128,6 +140,7 @@ class GetMyImageVerifyView(APIView):
                 'photo_count': client.photos.filter(is_hidden=False, status='ready').count(),
                 'linked_email': mask_email(client.linked_email) if client.linked_email else None,
                 'email_locked': client.email_locked,
+                'albums': published_albums,
             }
         }
 

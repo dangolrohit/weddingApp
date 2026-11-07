@@ -3,7 +3,7 @@ import logging
 from datetime import timedelta
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
-from django.db.models import Sum, F
+from django.db.models import Sum, F, Q
 from rest_framework import status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -96,6 +96,12 @@ class AdminAlbumDetailView(APIView):
             if album_status not in dict(Album.STATUS_CHOICES):
                 return Response({'status': ['Invalid status choice.']}, status=status.HTTP_400_BAD_REQUEST)
             album.status = album_status
+            # Auto-provision share link when publishing if not already set
+            if album_status == 'published' and not album.share_token_hash:
+                raw_token = generate_download_token()
+                album.share_token_hash = hash_download_token(raw_token)
+                album.share_expires_at = timezone.now() + timedelta(days=60)
+                album.share_revoked_at = None
 
         album.save()
         return Response(AlbumSerializer(album).data)
@@ -475,12 +481,14 @@ class AdminMediaDetailDeleteView(APIView):
 
 def resolve_active_album_or_error(share_token: str):
     """
-    Resolves an album by the hash of its share token.
+    Resolves an album by the hash of its share token (or directly by hash if client logged in).
     Enforces expiry, revocation, and published status.
     Returns (album, None) or (None, (error_dict, status_code)).
     """
     token_hash = hash_download_token(share_token)
-    album = Album.objects.filter(share_token_hash=token_hash).select_related('client').first()
+    album = Album.objects.filter(
+        Q(share_token_hash=token_hash) | Q(share_token_hash=share_token)
+    ).select_related('client').first()
 
     if not album:
         return None, ({'error': 'Album share link was not found. Please check the URL or contact the studio.'}, status.HTTP_404_NOT_FOUND)

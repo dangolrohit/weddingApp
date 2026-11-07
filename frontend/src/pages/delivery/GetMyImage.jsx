@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Key, 
   Heart, 
@@ -14,7 +15,8 @@ import {
   LogOut,
   Maximize2,
   Clock,
-  DownloadCloud
+  DownloadCloud,
+  Archive
 } from 'lucide-react';
 import { deliveryApi } from '../../api/delivery';
 import { Lightbox } from '../../components/Lightbox';
@@ -292,6 +294,62 @@ export const GetMyImage = () => {
           <span>Exit Gallery</span>
         </button>
       </div>
+
+      {/* Garage S3 Wedding Albums Section */}
+      {clientData.albums && clientData.albums.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-400">
+            <Archive className="w-4 h-4" />
+            <span>Your Wedding Albums & Cloud Collections</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {clientData.albums.map((alb) => (
+              <div
+                key={alb.id}
+                className="bg-stone-850 bg-stone-800/60 border border-stone-700/80 rounded-2xl p-6 hover:border-amber-500/50 transition-all flex flex-col justify-between gap-4 shadow-lg group"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <h3 className="text-lg font-serif font-bold text-stone-100 group-hover:text-amber-300 transition-colors">
+                      {alb.title}
+                    </h3>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold uppercase">
+                      Ready
+                    </span>
+                  </div>
+                  {alb.description && (
+                    <p className="text-xs text-stone-400 leading-relaxed mb-3">
+                      {alb.description}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-3 text-xs text-stone-400">
+                    <span>{alb.media_count} High-Res Items</span>
+                    {alb.archive_count > 0 && (
+                      <>
+                        <span>•</span>
+                        <span className="text-amber-400 font-medium">
+                          {alb.archive_count} ZIP Collection{alb.archive_count > 1 ? 's' : ''}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {alb.share_token && (
+                  <Link
+                    to={`/album/${alb.share_token}`}
+                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <span>View High-Res Gallery & Download All</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Delivery Link Request Card */}
       <div className="rounded-2xl bg-stone-800/40 border border-stone-700/60 p-6 sm:p-8 space-y-4">

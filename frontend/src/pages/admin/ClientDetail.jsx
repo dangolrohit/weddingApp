@@ -122,6 +122,8 @@ export const ClientDetail = () => {
   const [generatingShare, setGeneratingShare] = useState(false);
   const [deletingAlbumId, setDeletingAlbumId] = useState(null);
   const [deletingMediaId, setDeletingMediaId] = useState(null);
+  const [shareInviteModalOpen, setShareInviteModalOpen] = useState(false);
+  const [copiedInvite, setCopiedInvite] = useState(false);
 
   const fetchClientData = useCallback(async () => {
     try {
@@ -335,6 +337,42 @@ export const ClientDetail = () => {
     } finally {
       setDeletingMediaId(null);
     }
+  };
+
+  const getClientInviteMessage = () => {
+    if (!client) return '';
+    const activeAlb = selectedAlbum || (albums.length > 0 ? albums[0] : null);
+    const albumUrl = currentShareData?.share_url 
+      ? `${window.location.origin}${currentShareData.share_url}`
+      : (activeAlb?.share_token_hash ? `${window.location.origin}/album/${activeAlb.share_token_hash}` : '');
+    const clientLoginUrl = `${window.location.origin}/client-login`;
+
+    return `Dear ${client.groom_name} & ${client.bride_name}, 💍✨
+
+Your wedding photos & videos are ready! You can view and download your full collection using your private gallery link:
+${albumUrl ? `\n📸 Direct Album Link:\n${albumUrl}\n` : ''}
+🔐 Website Client Portal:
+URL: ${clientLoginUrl}
+Couple Names: ${client.groom_name} & ${client.bride_name}
+${newPasskey ? `Secret Passkey: ${newPasskey}` : 'Use your assigned Secret Passkey'}
+
+Thank you for choosing us to capture your unforgettable day!`;
+  };
+
+  const handleOpenWhatsApp = () => {
+    const text = encodeURIComponent(getClientInviteMessage());
+    const cleanPhone = (client.phone || '').replace(/[^0-9]/g, '');
+    if (cleanPhone.length >= 10) {
+      window.open(`https://wa.me/${cleanPhone}?text=${text}`, '_blank');
+    } else {
+      window.open(`https://wa.me/?text=${text}`, '_blank');
+    }
+  };
+
+  const handleOpenEmail = () => {
+    const subject = encodeURIComponent(`Your Wedding Gallery is Ready - ${client.groom_name} & ${client.bride_name}`);
+    const body = encodeURIComponent(getClientInviteMessage());
+    window.location.href = `mailto:${client.linked_email || ''}?subject=${subject}&body=${body}`;
   };
 
   const handleOpenRecordPay = () => {
@@ -574,11 +612,19 @@ export const ClientDetail = () => {
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-2.5">
             <button
+              onClick={() => setShareInviteModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm cursor-pointer"
+            >
+              <Share2 className="w-4 h-4" />
+              <span>Share Invite / WhatsApp</span>
+            </button>
+
+            <button
               onClick={() => setSendModalOpen(true)}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition-colors shadow-sm cursor-pointer"
             >
               <Send className="w-4 h-4" />
-              <span>Send Link</span>
+              <span>Send Email Link</span>
             </button>
 
             <button
@@ -1877,6 +1923,87 @@ export const ClientDetail = () => {
             >
               Done
             </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Share Invite & WhatsApp Template Modal */}
+      <Modal
+        isOpen={shareInviteModalOpen}
+        onClose={() => setShareInviteModalOpen(false)}
+        title="Share Gallery Invite with Client"
+        maxWidth="max-w-xl"
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-stone-600 leading-relaxed">
+            Send this pre-formatted invitation message to <strong>{client?.groom_name} & {client?.bride_name}</strong> via WhatsApp, SMS, or Email. They can open their private gallery in 1 click or log in at <code>/client-login</code> with their secret passkey.
+          </p>
+
+          {/* Quick Details Chips */}
+          <div className="grid grid-cols-2 gap-3 p-3 bg-stone-50 rounded-xl border border-stone-200 text-xs">
+            <div>
+              <span className="text-[10px] uppercase font-semibold text-stone-500">Couple Names</span>
+              <p className="font-semibold text-stone-900 mt-0.5">{client?.groom_name} & {client?.bride_name}</p>
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-semibold text-stone-500">Client Login Passkey</span>
+              <p className="font-mono font-semibold text-amber-700 mt-0.5">{newPasskey || '(Saved on client profile)'}</p>
+            </div>
+          </div>
+
+          {/* Pre-formatted Message Textarea */}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1.5">
+              Ready-to-Send Message Preview
+            </label>
+            <textarea
+              readOnly
+              rows={8}
+              value={getClientInviteMessage()}
+              className="w-full p-3.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-mono leading-relaxed select-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            />
+          </div>
+
+          {/* Action Buttons: Copy, WhatsApp, Email */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-stone-100">
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(getClientInviteMessage());
+                setCopiedInvite(true);
+                setTimeout(() => setCopiedInvite(false), 3000);
+              }}
+              className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold rounded-xl border border-stone-300 flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              {copiedInvite ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="text-emerald-700">Copied to Clipboard!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy Message</span>
+                </>
+              )}
+            </button>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleOpenEmail}
+                className="px-3.5 py-2 bg-stone-800 hover:bg-stone-700 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Mail className="w-3.5 h-3.5" />
+                <span>Open Email</span>
+              </button>
+
+              <button
+                onClick={handleOpenWhatsApp}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>Send via WhatsApp</span>
+              </button>
+            </div>
           </div>
         </div>
       </Modal>
