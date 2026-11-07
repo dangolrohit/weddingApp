@@ -530,6 +530,16 @@ docker compose -f docker-compose.prod.yml exec backend python manage.py migrate
 docker compose -f docker-compose.prod.yml exec backend python manage.py seed_demo_data
 ```
 
+### 10.3 Coolify Deployment & 4–5 TB S3 Private Storage
+The platform is 100% Coolify-native, integrating S3 object storage (MinIO) directly with Coolify's Traefik reverse proxy and Let's Encrypt SSL:
+1. **Persistent SSD Bind-Mount:** Physical 4–5 TB SSD on Ubuntu mounted to `${HOST_STORAGE_PATH:-/mnt/wedding_storage}:/data`.
+2. **Zero-Buffering Traefik Streaming:** Direct browser uploads of 10–30 GB collections stream directly to disk without memory buffering:
+   - `traefik.http.middlewares.minio-stream.buffering.maxRequestBodyBytes: 0`
+   - `traefik.http.middlewares.minio-stream.buffering.memRequestBodyBytes: 0`
+3. **Automated Bucket & CORS Initialization:** 1-shot `minio_setup` container auto-provisions `wedding-storage` bucket and permissions.
+4. **Local Development S3 Mock:** Built-in dev endpoint at `/api/dev-s3/` enables zero-config local testing without external containers.
+5. **Event-Agnostic Management:** Full support for solo, corporate, and wedding clients via unified Client Login (`/client-login`).
+
 ---
 
-*Document finalized and aligned with codebase commit `ab4435e`.*
+*Document finalized and aligned with codebase commit `fdfb038`.*
