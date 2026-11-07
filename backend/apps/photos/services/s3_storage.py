@@ -162,6 +162,20 @@ def verify_and_get_object_metadata(key: str) -> dict:
     Returns metadata dict: {'size': int, 'etag': str, 'content_type': str}.
     Raises StorageNotFoundError or StorageUnavailableError.
     """
+    if getattr(settings, 'GARAGE_S3_USE_LOCAL_MOCK', False):
+        import mimetypes
+        from pathlib import Path
+        mock_file = Path(settings.MEDIA_ROOT) / 'dev_s3' / key
+        if mock_file.exists():
+            stat = mock_file.stat()
+            c_type, _ = mimetypes.guess_type(str(mock_file))
+            return {
+                'size': stat.st_size,
+                'etag': f'dev-{stat.st_mtime_ns}',
+                'content_type': c_type or 'application/octet-stream'
+            }
+        raise StorageNotFoundError(f"Object {key} not found in local dev storage.")
+
     client = get_s3_client(public=False)
     try:
         response = client.head_object(Bucket=settings.GARAGE_S3_BUCKET_NAME, Key=key)
@@ -186,6 +200,13 @@ def verify_and_get_object_metadata(key: str) -> dict:
 
 def abort_multipart_upload_server(key: str, upload_id: str) -> bool:
     """Aborts a multipart upload server-side to free storage space."""
+    if getattr(settings, 'GARAGE_S3_USE_LOCAL_MOCK', False):
+        import shutil
+        from pathlib import Path
+        chunk_dir = Path(settings.MEDIA_ROOT) / 'dev_s3_chunks' / upload_id
+        shutil.rmtree(chunk_dir, ignore_errors=True)
+        return True
+
     client = get_s3_client(public=False)
     try:
         client.abort_multipart_upload(
@@ -201,6 +222,13 @@ def abort_multipart_upload_server(key: str, upload_id: str) -> bool:
 
 def delete_object_server(key: str) -> bool:
     """Deletes an object server-side from Garage S3."""
+    if getattr(settings, 'GARAGE_S3_USE_LOCAL_MOCK', False):
+        from pathlib import Path
+        mock_file = Path(settings.MEDIA_ROOT) / 'dev_s3' / key
+        if mock_file.exists():
+            mock_file.unlink()
+        return True
+
     client = get_s3_client(public=False)
     try:
         client.delete_object(

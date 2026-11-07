@@ -7,8 +7,12 @@ from .views import (
     ProtectedFileServeView
 )
 from . import views_s3
+from . import dev_s3_mock
 
 urlpatterns = [
+    # Dev S3 Mock (for local testing without running Garage/Docker)
+    path('api/dev-s3/<path:path>', dev_s3_mock.DevS3MockView.as_view(), name='dev_s3_mock'),
+
     # Legacy Photo management endpoints
     path('api/admin/clients/<uuid:client_id>/photos', ClientPhotoListUploadView.as_view(), name='admin_client_photos'),
     path('api/admin/photos/<uuid:pk>', PhotoDetailView.as_view(), name='admin_photo_detail'),

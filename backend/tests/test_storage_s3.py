@@ -313,3 +313,35 @@ class StorageS3Tests(TestCase):
             self.assertEqual(old_session.state, 'expired')
             self.assertIn("Aborted 1 multipart uploads", output)
 
+    def test_dev_s3_mock_view_lifecycle(self):
+        """Dev S3 Mock handles preflight OPTIONS, PUT, HEAD, GET, and DELETE with CORS."""
+        mock_url = '/api/dev-s3/wedding-storage/albums/test/sample.png'
+
+        # 1. OPTIONS preflight
+        opt_res = self.client.options(mock_url)
+        self.assertEqual(opt_res.status_code, 200)
+        self.assertEqual(opt_res['Access-Control-Allow-Origin'], '*')
+        self.assertIn('PUT', opt_res['Access-Control-Allow-Methods'])
+
+        # 2. PUT single object
+        put_res = self.client.put(mock_url, data=b"binary-image-data", content_type='image/png')
+        self.assertEqual(put_res.status_code, 200)
+        self.assertIn('ETag', put_res)
+
+        # 3. HEAD metadata
+        head_res = self.client.head(mock_url)
+        self.assertEqual(head_res.status_code, 200)
+        self.assertEqual(int(head_res['Content-Length']), len(b"binary-image-data"))
+
+        # 4. GET download
+        get_res = self.client.get(mock_url)
+        self.assertEqual(get_res.status_code, 200)
+        self.assertEqual(b"".join(get_res.streaming_content), b"binary-image-data")
+
+        # 5. DELETE object
+        del_res = self.client.delete(mock_url)
+        self.assertEqual(del_res.status_code, 204)
+        del_verify = self.client.head(mock_url)
+        self.assertEqual(del_verify.status_code, 404)
+
+
