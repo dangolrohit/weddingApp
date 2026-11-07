@@ -68,13 +68,13 @@ export const SendLinkModal = ({ isOpen, onClose, client, onSuccess }) => {
 
   if (!client) return null;
 
-  const coupleTitle = `${client.groom_name} & ${client.bride_name}`;
+  const clientTitle = client.display_name || (client.bride_name ? `${client.groom_name} & ${client.bride_name}` : client.groom_name);
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Send Gallery Link • ${coupleTitle}`}
+      title={`Send Gallery Link • ${clientTitle}`}
       maxWidth="max-w-lg"
     >
       {sentResult ? (

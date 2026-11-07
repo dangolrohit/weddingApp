@@ -61,7 +61,7 @@ class Photo(models.Model):
         verbose_name_plural = 'Photos'
 
     def __str__(self):
-        return f"{self.original_filename} ({self.client.groom_name} & {self.client.bride_name})"
+        return f"{self.original_filename} ({self.client.display_name})"
 
 
 class PhotoVariant(models.Model):
@@ -141,7 +141,7 @@ class Album(models.Model):
         verbose_name_plural = 'Albums'
 
     def __str__(self):
-        return f"{self.title} ({self.client.groom_name} & {self.client.bride_name})"
+        return f"{self.title} ({self.client.display_name})"
 
     @property
     def is_share_active(self):

@@ -543,7 +543,7 @@ class ClientPublicAlbumView(APIView):
                 'id': str(album.id),
                 'title': album.title,
                 'description': album.description,
-                'client_names': f"{client.groom_name} & {client.bride_name}",
+                'client_names': client.display_name,
                 'event_date': client.event_date.isoformat() if client.event_date else None,
                 'created_at': album.created_at.isoformat(),
                 'expires_at': album.share_expires_at.isoformat() if album.share_expires_at else None,

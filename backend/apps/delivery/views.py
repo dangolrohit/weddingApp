@@ -71,11 +71,15 @@ class GetMyImageVerifyView(APIView):
         serializer = ClientVerifySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        groom_name = serializer.validated_data['groom_name']
-        bride_name = serializer.validated_data['bride_name']
-        raw_passkey = serializer.validated_data['passkey']
+        name_input = serializer.validated_data.get('name', '').strip()
+        groom_name = serializer.validated_data.get('groom_name', '').strip()
+        bride_name = serializer.validated_data.get('bride_name', '').strip()
+        raw_passkey = serializer.validated_data['passkey'].strip()
 
-        name_key = normalize_name_key(groom_name, bride_name)
+        if name_input:
+            name_key = normalize_name_key(name_input, '')
+        else:
+            name_key = normalize_name_key(groom_name, bride_name)
 
         # Find active published client
         client = Client.objects.filter(
@@ -83,6 +87,17 @@ class GetMyImageVerifyView(APIView):
             status='published',
             deleted_at__isnull=True
         ).first()
+
+        # Smart fallback matching for single name or partial event names with valid passkey
+        if not client:
+            candidates = Client.objects.filter(status='published', deleted_at__isnull=True)
+            for c in candidates:
+                if verify_passkey(raw_passkey, c.passkey_hash):
+                    c_words = set(c.name_key.split())
+                    entered_words = set(name_key.split())
+                    if entered_words and entered_words.intersection(c_words):
+                        client = c
+                        break
 
         # 2. Client-level brute-force check
         if client:
@@ -134,6 +149,7 @@ class GetMyImageVerifyView(APIView):
             'session_token': session_token,
             'client': {
                 'id': client.id,
+                'display_name': client.display_name,
                 'groom_name': client.groom_name,
                 'bride_name': client.bride_name,
                 'event_date': client.event_date,

@@ -7,6 +7,7 @@ from apps.core.utils import generate_passkey, hash_passkey
 class ClientListSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     category_slug = serializers.CharField(source='category.slug', read_only=True)
+    display_name = serializers.CharField(read_only=True)
     cover_photo = serializers.SerializerMethodField()
     link_status = serializers.SerializerMethodField()
     total_paid = serializers.SerializerMethodField()
@@ -16,7 +17,7 @@ class ClientListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
         fields = (
-            'id', 'groom_name', 'bride_name', 'event_date', 'category',
+            'id', 'groom_name', 'bride_name', 'display_name', 'event_date', 'category',
             'category_name', 'category_slug', 'photo_count', 'storage_bytes',
             'package_price', 'total_paid', 'pending_balance', 'payment_status',
             'status', 'link_status', 'cover_photo', 'deleted_at', 'created_at'
@@ -76,6 +77,7 @@ class ClientDetailSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
+    display_name = serializers.CharField(read_only=True)
     link_status = serializers.SerializerMethodField()
     total_paid = serializers.SerializerMethodField()
     pending_balance = serializers.SerializerMethodField()
@@ -84,14 +86,14 @@ class ClientDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
         fields = (
-            'id', 'groom_name', 'bride_name', 'name_key', 'linked_email',
+            'id', 'groom_name', 'bride_name', 'display_name', 'name_key', 'linked_email',
             'email_locked', 'phone', 'event_date', 'package_price',
             'total_paid', 'pending_balance', 'payment_status',
             'category', 'category_id',
             'status', 'notes', 'photo_count', 'storage_bytes', 'link_status',
             'deleted_at', 'created_by', 'created_at', 'updated_at'
         )
-        read_only_fields = ('id', 'name_key', 'photo_count', 'storage_bytes', 'created_at', 'updated_at', 'link_status', 'total_paid', 'pending_balance', 'payment_status')
+        read_only_fields = ('id', 'display_name', 'name_key', 'photo_count', 'storage_bytes', 'created_at', 'updated_at', 'link_status', 'total_paid', 'pending_balance', 'payment_status')
 
     def get_total_paid(self, obj):
         from django.db.models import Sum
@@ -129,6 +131,8 @@ class ClientDetailSerializer(serializers.ModelSerializer):
         return {'status': 'none', 'expires_at': None}
 
 class ClientCreateSerializer(serializers.ModelSerializer):
+    groom_name = serializers.CharField(max_length=255, required=True, label="Client Name or Event Title")
+    bride_name = serializers.CharField(max_length=255, required=False, allow_blank=True, default='', label="Partner Name (Optional)")
     category_id = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(),
         source='category',
@@ -157,12 +161,14 @@ class ClientCreateSerializer(serializers.ModelSerializer):
         # Attach raw_passkey to instance so it is returned once in response
         client.raw_passkey = raw_passkey
 
-        # Auto-create primary wedding album for Garage S3
+        # Auto-create primary album for Garage S3
         from apps.photos.models import Album
+        album_title = f"{client.groom_name} & {client.bride_name} Wedding Album" if client.bride_name else f"{client.groom_name} Album"
+        album_desc = f"Primary collection for {client.display_name}."
         Album.objects.create(
             client=client,
-            title=f"{client.groom_name} & {client.bride_name} Wedding Album",
-            description=f"Primary wedding collection for {client.groom_name} & {client.bride_name}.",
+            title=album_title,
+            description=album_desc,
             status='draft',
             created_by=user if getattr(user, 'is_authenticated', False) else None
         )

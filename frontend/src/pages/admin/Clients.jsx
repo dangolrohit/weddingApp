@@ -146,7 +146,7 @@ export const Clients = () => {
       // Show the generated passkey modal
       if (res.raw_passkey) {
         setGeneratedPasskey(res.raw_passkey);
-        setPasskeyClientNames(`${res.groom_name} & ${res.bride_name}`);
+        setPasskeyClientNames(res.bride_name ? `${res.groom_name} & ${res.bride_name}` : res.groom_name);
         setPasskeyModalOpen(true);
       }
     } catch (err) {
@@ -357,7 +357,7 @@ export const Clients = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-stone-200 bg-stone-50/60 text-xs font-semibold text-stone-500 uppercase tracking-wider">
-                  <th className="py-3 px-6">Couple</th>
+                  <th className="py-3 px-6">Client / Event</th>
                   <th className="py-3 px-6">Event Date</th>
                   <th className="py-3 px-6">Category</th>
                   <th className="py-3 px-6">Photos</th>
@@ -385,7 +385,7 @@ export const Clients = () => {
                             to={`/admin/clients/${c.id}`}
                             className="font-medium text-stone-900 hover:text-amber-700 transition-colors"
                           >
-                            {c.groom_name} & {c.bride_name}
+                            {c.bride_name ? `${c.groom_name} & ${c.bride_name}` : c.groom_name}
                           </Link>
                           <p className="text-xs text-stone-400 font-mono">
                             Added {new Date(c.created_at).toLocaleDateString()}
@@ -545,28 +545,27 @@ export const Clients = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1">
-                Groom Name *
+                Client / Event Name *
               </label>
               <input
                 type="text"
                 required
                 value={groomName}
                 onChange={(e) => setGroomName(e.target.value)}
-                placeholder="e.g. David Miller"
+                placeholder="e.g. David & Emily, Sophia, or Acme Corp"
                 className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-600"
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1">
-                Bride Name *
+                Partner Name (Optional)
               </label>
               <input
                 type="text"
-                required
                 value={brideName}
                 onChange={(e) => setBrideName(e.target.value)}
-                placeholder="e.g. Emily Watson"
+                placeholder="e.g. Emily Watson (leave blank for solo events)"
                 className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-600"
               />
             </div>
@@ -727,7 +726,7 @@ export const Clients = () => {
       >
         <div className="space-y-4">
           <p className="text-sm text-stone-600">
-            Are you sure you want to move <strong>{clientToDelete?.groom_name} & {clientToDelete?.bride_name}</strong> to the trash?
+            Are you sure you want to move <strong>{clientToDelete?.display_name || (clientToDelete?.bride_name ? `${clientToDelete?.groom_name} & ${clientToDelete?.bride_name}` : clientToDelete?.groom_name)}</strong> to the trash?
           </p>
           <p className="text-xs text-stone-400">
             The client will remain in the trash for 30 days before permanent file deletion. You can restore it anytime before then.

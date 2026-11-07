@@ -36,8 +36,7 @@ export const GetMyImage = () => {
   });
 
   // Verification Form State
-  const [groomName, setGroomName] = useState('');
-  const [brideName, setBrideName] = useState('');
+  const [name, setName] = useState('');
   const [passkey, setPasskey] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState('');
@@ -73,16 +72,15 @@ export const GetMyImage = () => {
     e.preventDefault();
     setVerifyError('');
 
-    if (!groomName.trim() || !brideName.trim() || !passkey.trim()) {
-      setVerifyError('Please enter both couple names and your passkey.');
+    if (!name.trim() || !passkey.trim()) {
+      setVerifyError('Please enter your client or event name and your secret passkey.');
       return;
     }
 
     setVerifying(true);
     try {
       const data = await deliveryApi.verifyClient({
-        groom_name: groomName.trim(),
-        bride_name: brideName.trim(),
+        name: name.trim(),
         passkey: passkey.trim().toUpperCase(),
       });
 
@@ -95,7 +93,7 @@ export const GetMyImage = () => {
       if (err.response?.status === 429) {
         setVerifyError(err.response.data.detail || 'Too many attempts. Please wait 15 minutes.');
       } else {
-        setVerifyError(err.response?.data?.detail || 'Verification failed. Please check your names and passkey.');
+        setVerifyError(err.response?.data?.detail || 'Verification failed. Please check your name and passkey.');
       }
     } finally {
       setVerifying(false);
@@ -169,7 +167,7 @@ export const GetMyImage = () => {
             Client Login
           </h1>
           <p className="text-sm text-stone-400 max-w-sm mx-auto">
-            Enter your names and secret passkey to access your private wedding gallery and download your collection.
+            Enter your client or event name and secret passkey to access your private gallery and download your collection.
           </p>
         </div>
 
@@ -184,30 +182,19 @@ export const GetMyImage = () => {
 
             <div>
               <label className="block text-xs font-medium uppercase tracking-wider text-stone-300 mb-1.5">
-                Groom Name
+                Client / Event Name
               </label>
               <input
                 type="text"
                 required
-                value={groomName}
-                onChange={(e) => setGroomName(e.target.value)}
-                placeholder="e.g. David Miller"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. David & Emily or Sophia Davis"
                 className="w-full px-4 py-2.5 rounded-xl bg-stone-900 border border-stone-700 text-stone-100 placeholder-stone-600 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
               />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium uppercase tracking-wider text-stone-300 mb-1.5">
-                Bride Name
-              </label>
-              <input
-                type="text"
-                required
-                value={brideName}
-                onChange={(e) => setBrideName(e.target.value)}
-                placeholder="e.g. Emily Watson"
-                className="w-full px-4 py-2.5 rounded-xl bg-stone-900 border border-stone-700 text-stone-100 placeholder-stone-600 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
-              />
+              <p className="text-[11px] text-stone-500 mt-1">
+                Enter couple names (e.g. David & Emily), individual name, or event title.
+              </p>
             </div>
 
             <div>
@@ -258,7 +245,7 @@ export const GetMyImage = () => {
   }
 
   // 2. VERIFIED GALLERY PREVIEW VIEW
-  const coupleTitle = `${clientData.groom_name} & ${clientData.bride_name}`;
+  const clientTitle = clientData.display_name || (clientData.bride_name ? `${clientData.groom_name} & ${clientData.bride_name}` : clientData.groom_name);
 
   return (
     <div className="py-12 px-6 max-w-7xl mx-auto space-y-12">
@@ -266,11 +253,15 @@ export const GetMyImage = () => {
       <div className="rounded-3xl bg-gradient-to-r from-stone-850 via-stone-800 to-stone-850 border border-stone-700/70 p-6 sm:p-10 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-xl">
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-400">
-            <Heart className="w-4 h-4 fill-amber-400" />
+            {clientData.bride_name ? (
+              <Heart className="w-4 h-4 fill-amber-400" />
+            ) : (
+              <Camera className="w-4 h-4 text-amber-400" />
+            )}
             <span>Private Collection</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-serif font-bold text-stone-100">
-            {coupleTitle}
+            {clientTitle}
           </h1>
           <div className="flex items-center gap-4 text-xs text-stone-400">
             {clientData.event_date && (
@@ -300,7 +291,7 @@ export const GetMyImage = () => {
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-400">
             <Archive className="w-4 h-4" />
-            <span>Your Wedding Albums & Cloud Collections</span>
+            <span>Your Cloud Albums & Collections</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -325,7 +325,7 @@ export const Payments = () => {
             <option value="all">All Clients</option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.groom_name} & {c.bride_name}
+                {c.display_name || (c.bride_name ? `${c.groom_name} & ${c.bride_name}` : c.groom_name)}
               </option>
             ))}
           </select>
@@ -480,10 +480,10 @@ export const Payments = () => {
               required
               className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
             >
-              <option value="" disabled>Select a wedding client</option>
+              <option value="" disabled>Select a client</option>
               {clients.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.groom_name} & {c.bride_name} {c.event_date ? `(${c.event_date})` : ''}
+                  {(c.display_name || (c.bride_name ? `${c.groom_name} & ${c.bride_name}` : c.groom_name))} {c.event_date ? `(${c.event_date})` : ''}
                 </option>
               ))}
             </select>

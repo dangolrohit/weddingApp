@@ -215,10 +215,11 @@ export const ClientDetail = () => {
     }
     if (!target && client) {
       try {
-        const defTitle = `${client.groom_name} & ${client.bride_name} Wedding Album`;
+        const clientTitle = client.display_name || (client.bride_name ? `${client.groom_name} & ${client.bride_name}` : client.groom_name);
+        const defTitle = `${clientTitle} Album`;
         target = await albumsApi.createClientAlbum(id, {
           title: defTitle,
-          description: `Primary wedding collection for ${client.groom_name} & ${client.bride_name}.`
+          description: `Primary photo & video collection for ${clientTitle}.`
         });
         await fetchAlbums();
         setSelectedAlbum(target);
@@ -346,17 +347,19 @@ export const ClientDetail = () => {
       ? `${window.location.origin}${currentShareData.share_url}`
       : (activeAlb?.share_token_hash ? `${window.location.origin}/album/${activeAlb.share_token_hash}` : '');
     const clientLoginUrl = `${window.location.origin}/client-login`;
+    const clientTitle = client.bride_name ? `${client.groom_name} & ${client.bride_name}` : client.groom_name;
+    const emoji = client.bride_name ? '💍✨' : '📸✨';
 
-    return `Dear ${client.groom_name} & ${client.bride_name}, 💍✨
+    return `Dear ${clientTitle}, ${emoji}
 
-Your wedding photos & videos are ready! You can view and download your full collection using your private gallery link:
-${albumUrl ? `\n📸 Direct Album Link:\n${albumUrl}\n` : ''}
+Your photos & videos are ready! You can view and download your full collection using your private gallery link:
+${albumUrl ? `\n📸 Direct Gallery Link:\n${albumUrl}\n` : ''}
 🔐 Website Client Portal:
 URL: ${clientLoginUrl}
-Couple Names: ${client.groom_name} & ${client.bride_name}
+Client / Event: ${clientTitle}
 ${newPasskey ? `Secret Passkey: ${newPasskey}` : 'Use your assigned Secret Passkey'}
 
-Thank you for choosing us to capture your unforgettable day!`;
+Thank you for choosing us to capture your unforgettable moments!`;
   };
 
   const handleOpenWhatsApp = () => {
@@ -370,7 +373,8 @@ Thank you for choosing us to capture your unforgettable day!`;
   };
 
   const handleOpenEmail = () => {
-    const subject = encodeURIComponent(`Your Wedding Gallery is Ready - ${client.groom_name} & ${client.bride_name}`);
+    const clientTitle = client.bride_name ? `${client.groom_name} & ${client.bride_name}` : client.groom_name;
+    const subject = encodeURIComponent(`Your Gallery is Ready - ${clientTitle}`);
     const body = encodeURIComponent(getClientInviteMessage());
     window.location.href = `mailto:${client.linked_email || ''}?subject=${subject}&body=${body}`;
   };
@@ -459,7 +463,7 @@ Thank you for choosing us to capture your unforgettable day!`;
   const handleOpenEdit = () => {
     if (!client) return;
     setGroomName(client.groom_name);
-    setBrideName(client.bride_name);
+    setBrideName(client.bride_name || '');
     setEventDate(client.event_date || '');
     setPackagePrice(client.package_price || '0.00');
     setCategoryId(client.category?.id || '');
@@ -601,7 +605,7 @@ Thank you for choosing us to capture your unforgettable day!`;
             </div>
 
             <h1 className="text-3xl font-serif font-bold text-stone-900 tracking-tight">
-              {client.groom_name} & {client.bride_name}
+              {client.display_name || (client.bride_name ? `${client.groom_name} & ${client.bride_name}` : client.groom_name)}
             </h1>
 
             <p className="text-xs text-stone-400 font-mono mt-1">
@@ -1513,25 +1517,26 @@ Thank you for choosing us to capture your unforgettable day!`;
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1">
-                Groom Name *
+                Client / Event Name *
               </label>
               <input
                 type="text"
                 required
                 value={groomName}
                 onChange={(e) => setGroomName(e.target.value)}
+                placeholder="e.g. David Miller or TechCorp Gala"
                 className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30"
               />
             </div>
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1">
-                Bride Name *
+                Partner Name (Optional)
               </label>
               <input
                 type="text"
-                required
                 value={brideName}
                 onChange={(e) => setBrideName(e.target.value)}
+                placeholder="e.g. Emily Watson (Optional)"
                 className="w-full px-3.5 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30"
               />
             </div>
@@ -1657,7 +1662,7 @@ Thank you for choosing us to capture your unforgettable day!`;
         isOpen={passkeyModalOpen}
         onClose={() => setPasskeyModalOpen(false)}
         passkey={newPasskey}
-        clientNames={`${client.groom_name} & ${client.bride_name}`}
+        clientNames={client.display_name || (client.bride_name ? `${client.groom_name} & ${client.bride_name}` : client.groom_name)}
         isRegenerated={true}
       />
 
@@ -1676,7 +1681,7 @@ Thank you for choosing us to capture your unforgettable day!`;
       <Modal
         isOpen={recordPayOpen}
         onClose={() => setRecordPayOpen(false)}
-        title={`Record Payment for ${client.groom_name} & ${client.bride_name}`}
+        title={`Record Payment for ${client.display_name || (client.bride_name ? `${client.groom_name} & ${client.bride_name}` : client.groom_name)}`}
       >
         <form onSubmit={handleSavePayment} className="space-y-4">
           {payError && (
@@ -1936,14 +1941,14 @@ Thank you for choosing us to capture your unforgettable day!`;
       >
         <div className="space-y-4">
           <p className="text-xs text-stone-600 leading-relaxed">
-            Send this pre-formatted invitation message to <strong>{client?.groom_name} & {client?.bride_name}</strong> via WhatsApp, SMS, or Email. They can open their private gallery in 1 click or log in at <code>/client-login</code> with their secret passkey.
+            Send this pre-formatted invitation message to <strong>{client?.display_name || (client?.bride_name ? `${client?.groom_name} & ${client?.bride_name}` : client?.groom_name)}</strong> via WhatsApp, SMS, or Email. They can open their private gallery in 1 click or log in at <code>/client-login</code> with their secret passkey.
           </p>
 
           {/* Quick Details Chips */}
           <div className="grid grid-cols-2 gap-3 p-3 bg-stone-50 rounded-xl border border-stone-200 text-xs">
             <div>
-              <span className="text-[10px] uppercase font-semibold text-stone-500">Couple Names</span>
-              <p className="font-semibold text-stone-900 mt-0.5">{client?.groom_name} & {client?.bride_name}</p>
+              <span className="text-[10px] uppercase font-semibold text-stone-500">Client / Event</span>
+              <p className="font-semibold text-stone-900 mt-0.5">{client?.display_name || (client?.bride_name ? `${client?.groom_name} & ${client?.bride_name}` : client?.groom_name)}</p>
             </div>
             <div>
               <span className="text-[10px] uppercase font-semibold text-stone-500">Client Login Passkey</span>

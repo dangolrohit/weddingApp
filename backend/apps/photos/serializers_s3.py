@@ -54,7 +54,7 @@ class AlbumSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'client_id', 'created_at', 'updated_at')
 
     def get_client_names(self, obj):
-        return f"{obj.client.groom_name} & {obj.client.bride_name}"
+        return obj.client.display_name
 
     def get_media_count(self, obj):
         return obj.media_items.count()

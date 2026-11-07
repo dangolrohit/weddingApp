@@ -294,7 +294,7 @@ export const Storage = () => {
                   <tr key={c.id} className="hover:bg-stone-50/60 transition-colors">
                     <td className="py-4 px-6 font-medium text-stone-900">
                       <Link to={`/admin/clients/${c.id}`} className="hover:text-amber-700">
-                        {c.groom_name} & {c.bride_name}
+                        {c.display_name || (c.bride_name ? `${c.groom_name} & ${c.bride_name}` : c.groom_name)}
                       </Link>
                     </td>
                     <td className="py-4 px-6 text-stone-500">

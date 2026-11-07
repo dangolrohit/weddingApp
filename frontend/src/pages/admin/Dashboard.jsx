@@ -290,7 +290,7 @@ export const Dashboard = () => {
                 <div key={c.id} className="p-4 px-6 flex items-center justify-between hover:bg-stone-50/60 transition-colors">
                   <div className="space-y-0.5">
                     <Link to={`/admin/clients/${c.id}`} className="font-medium text-stone-900 text-xs hover:text-amber-700">
-                      {c.groom_name} & {c.bride_name}
+                      {c.display_name || (c.bride_name ? `${c.groom_name} & ${c.bride_name}` : c.groom_name)}
                     </Link>
                     <div className="flex items-center gap-3 text-[11px] text-stone-400">
                       <span>{c.event_date ? new Date(c.event_date).toLocaleDateString() : 'No date'}</span>

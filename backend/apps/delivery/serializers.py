@@ -14,9 +14,15 @@ def mask_email(email: str) -> str:
     return f"{masked_user}@{domain_part}"
 
 class ClientVerifySerializer(serializers.Serializer):
-    groom_name = serializers.CharField(max_length=255, required=True, trim_whitespace=True)
-    bride_name = serializers.CharField(max_length=255, required=True, trim_whitespace=True)
+    name = serializers.CharField(max_length=255, required=False, allow_blank=True, trim_whitespace=True, default='')
+    groom_name = serializers.CharField(max_length=255, required=False, allow_blank=True, trim_whitespace=True, default='')
+    bride_name = serializers.CharField(max_length=255, required=False, allow_blank=True, trim_whitespace=True, default='')
     passkey = serializers.CharField(max_length=64, required=True, trim_whitespace=True)
+
+    def validate(self, attrs):
+        if not attrs.get('name') and not attrs.get('groom_name') and not attrs.get('bride_name'):
+            raise serializers.ValidationError({'name': 'Please enter your client or event name.'})
+        return attrs
 
 class ClientPreviewPhotoSerializer(serializers.ModelSerializer):
     preview_url = serializers.SerializerMethodField()

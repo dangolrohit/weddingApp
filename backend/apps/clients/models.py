@@ -12,8 +12,8 @@ class Client(models.Model):
     )
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    groom_name = models.CharField(max_length=255)
-    bride_name = models.CharField(max_length=255)
+    groom_name = models.CharField(max_length=255, help_text="Client Name, Groom Name, or Event Title")
+    bride_name = models.CharField(max_length=255, blank=True, default='', help_text="Partner Name (Optional for non-wedding events)")
     name_key = models.CharField(max_length=512, db_index=True)
     passkey_hash = models.CharField(max_length=255)
     linked_email = models.EmailField(blank=True, null=True)
@@ -79,6 +79,12 @@ class Client(models.Model):
     def is_deleted(self) -> bool:
         return self.deleted_at is not None
 
+    @property
+    def display_name(self) -> str:
+        if self.bride_name:
+            return f"{self.groom_name} & {self.bride_name}"
+        return self.groom_name
+
     def __str__(self):
-        return f"{self.groom_name} & {self.bride_name}"
+        return self.display_name
 

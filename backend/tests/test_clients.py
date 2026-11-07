@@ -103,3 +103,34 @@ class ClientTests(TestCase):
         client.refresh_from_db()
         self.assertFalse(client.is_deleted)
 
+    def test_create_event_client_without_partner(self):
+        """Test creating non-wedding client (e.g. corporate or solo) without bride_name."""
+        url = reverse('admin_client_list_create')
+        payload = {
+            'groom_name': 'TechCorp Annual Gala 2026',
+            'bride_name': '',
+            'status': 'published'
+        }
+        response = self.client.post(url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        raw_passkey = response.data['raw_passkey']
+
+        client = Client.objects.get(id=response.data['id'])
+        self.assertEqual(client.display_name, 'TechCorp Annual Gala 2026')
+        self.assertEqual(client.bride_name, '')
+
+        # Check default album auto-provisioned
+        album = client.albums.first()
+        self.assertIsNotNone(album)
+        self.assertEqual(album.title, 'TechCorp Annual Gala 2026 Album')
+
+        # Test Client Login Verification using single name
+        verify_url = reverse('client_verify')
+        verify_res = self.client.post(verify_url, {
+            'name': 'TechCorp Annual Gala 2026',
+            'passkey': raw_passkey
+        }, format='json')
+        self.assertEqual(verify_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(verify_res.data['client']['display_name'], 'TechCorp Annual Gala 2026')
+
+
