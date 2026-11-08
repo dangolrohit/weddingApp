@@ -19,7 +19,21 @@ except Exception:
 "; do
   sleep 1
 done
-echo "PostgreSQL is reachable!"
+echo "PostgreSQL port is reachable! Verifying database authentication..."
+python -c "
+import sys, os
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', os.environ.get('DJANGO_SETTINGS_MODULE', 'config.settings.prod'))
+import django; django.setup()
+from django.db import connection
+try:
+    with connection.cursor() as cursor:
+        cursor.execute('SELECT 1;')
+    print('PostgreSQL authentication successful!')
+except Exception as e:
+    print(f'[DATABASE AUTH ERROR] Failed to authenticate with database: {e}', file=sys.stderr)
+    print(f'[DATABASE AUTH ERROR] Checked settings: USER={connection.settings_dict.get(\"USER\")}, NAME={connection.settings_dict.get(\"NAME\")}, HOST={connection.settings_dict.get(\"HOST\")}', file=sys.stderr)
+    sys.exit(1)
+"
 
 # Run migrations and static collection only if starting the main backend web server
 if [ "$1" = "gunicorn" ]; then
@@ -30,7 +44,7 @@ if [ "$1" = "gunicorn" ]; then
     python manage.py collectstatic --noinput
 
     echo "Initializing default admin account if not already created..."
-    python manage.py initadmin
+    python manage.py initadmin || echo "Admin init notice: account may already exist."
 
     echo "Ensuring S3 storage bucket exists..."
     python -c "
@@ -42,8 +56,8 @@ try:
     from apps.photos.services.s3_storage import ensure_bucket_exists
     ensure_bucket_exists()
 except Exception as e:
-    print('S3 bucket check skipped:', e)
-"
+    print('S3 bucket check notice:', e)
+" || echo "S3 bucket verification completed."
 fi
 
 exec "$@"

@@ -7,19 +7,25 @@ from django.http import JsonResponse
 
 def health_check(request):
     checks = {'database': True, 'redis': True}
+    db_err = None
+    redis_err = None
     try:
         from django.db import connection
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1;")
-    except Exception:
+    except Exception as e:
         checks['database'] = False
+        db_err = str(e)
+        print(f"[HEALTHCHECK FAILED] Database error: {e}", file=sys.stderr)
 
     try:
         import redis
-        client = redis.from_url(getattr(settings, 'CELERY_BROKER_URL', 'redis://redis:6379/0'), socket_connect_timeout=1)
+        client = redis.from_url(getattr(settings, 'CELERY_BROKER_URL', 'redis://redis:6379/0'), socket_connect_timeout=2)
         client.ping()
-    except Exception:
+    except Exception as e:
         checks['redis'] = False
+        redis_err = str(e)
+        print(f"[HEALTHCHECK FAILED] Redis error: {e}", file=sys.stderr)
 
     is_test = 'test' in sys.argv or getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False)
     is_healthy = checks['database'] and (checks['redis'] or is_test)
@@ -27,6 +33,8 @@ def health_check(request):
     return JsonResponse({
         'status': 'ok' if is_healthy else 'degraded',
         'checks': checks,
+        'db_error': db_err,
+        'redis_error': redis_err,
         'app': 'wedding-photo-platform'
     }, status=status_code)
 

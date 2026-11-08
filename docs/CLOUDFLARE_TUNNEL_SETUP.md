@@ -226,3 +226,4 @@ MinIO S3 multipart uploads send parallel HTTP PUT requests. To ensure Cloudflare
 3. Upload a test 4K photo or zip file:
    - Progress bar uploads chunks to `s3.yourdomain.com`.
    - File appears immediately on your Ubuntu SSD under `/mnt/wedding_storage`.
+
