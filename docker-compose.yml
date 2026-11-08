@@ -51,7 +51,7 @@ services:
     labels:
       # Coolify / Traefik integration: disable upload buffering for large 10-30 GB direct browser streams
       - "traefik.enable=true"
-      - "traefik.http.routers.wedding-minio.rule=Host(`${SERVICE_FQDN_MINIO:-s3.localhost}`)"
+      - "traefik.http.routers.wedding-minio.rule=Host(`s3.zyapugraphy.com.np`) || Host(`${MINIO_DOMAIN:-s3.localhost}`)"
       - "traefik.http.routers.wedding-minio.service=wedding-minio"
       - "traefik.http.services.wedding-minio.loadbalancer.server.port=9000"
       - "traefik.http.middlewares.minio-stream.buffering.maxRequestBodyBytes=0"
@@ -199,7 +199,7 @@ services:
     labels:
       # Coolify main application entrypoint
       - "traefik.enable=true"
-      - "traefik.http.routers.wedding-gateway.rule=Host(`${SERVICE_FQDN_APP:-localhost}`)"
+      - "traefik.http.routers.wedding-gateway.rule=Host(`zyapugraphy.com.np`) || Host(`photos.zyapugraphy.com.np`) || Host(`${APP_DOMAIN:-localhost}`)"
       - "traefik.http.routers.wedding-gateway.service=wedding-gateway"
       - "traefik.http.services.wedding-gateway.loadbalancer.server.port=80"
 
